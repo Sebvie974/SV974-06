@@ -9,25 +9,36 @@
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 
     <style>
-        :root { --primary: #2563eb; --bg: #f8fafc; --text: #1e293b; }
+        :root { 
+            --primary: #2563eb; 
+            --bg: #f8fafc; 
+            --text: #1e293b; 
+            --success: #10b981;
+            --danger: #ef4444;
+        }
         body { font-family: system-ui, sans-serif; background: var(--bg); color: var(--text); margin: 0; padding: 0; }
         header { background: var(--primary); color: white; padding: 1rem; text-align: center; }
         nav { display: flex; gap: 1rem; padding: 1rem; background: white; border-bottom: 1px solid #e2e8f0; justify-content: center; }
-        button { padding: 0.5rem 1rem; border: none; background: #e2e8f0; border-radius: 6px; cursor: pointer; }
+        button { padding: 0.5rem 1rem; border: none; background: #e2e8f0; border-radius: 6px; cursor: pointer; font-weight: 500; }
         button.active { background: var(--primary); color: white; }
+        
         .container { padding: 2rem; max-width: 800px; margin: 0 auto; }
         .section { display: none; }
         .section.active { display: block; }
+        
         .card { background: white; padding: 1rem; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); margin-bottom: 1rem; }
-        .kine-item { padding: 0.5rem; border-bottom: 1px solid #eee; display: flex; justify-content: space-between; align-items: center; }
+        .kine-item { padding: 0.75rem; border-bottom: 1px solid #f1f5f9; display: flex; justify-content: space-between; align-items: center; }
         .kine-item:last-child { border-bottom: none; }
         
         /* Styles pour les formulaires */
-        .form-container { display: none; background: #fff; padding: 1rem; border-radius: 8px; border: 1px solid #e2e8f0; margin-bottom: 1rem; }
+        .form-container { display: none; background: #fff; padding: 1.5rem; border-radius: 8px; border: 1px solid #e2e8f0; margin-bottom: 1.5rem; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); }
         .form-group { margin-bottom: 1rem; }
-        .form-group input { padding: 0.5rem; width: 100%; box-sizing: border-box; border: 1px solid #cbd5e1; border-radius: 4px; }
-        .btn-success { background: #10b981; color: white; }
-        .btn-danger { background: #ef4444; color: white; }
+        .form-group label { display: block; font-size: 0.85em; color: #64748b; margin-bottom: 0.25rem; }
+        .form-group input { padding: 0.5rem; width: 100%; box-sizing: border-box; border: 1px solid #cbd5e1; border-radius: 4px; font-size: 1rem; }
+        
+        .btn-success { background: var(--success); color: white; }
+        .btn-danger { background: var(--danger); color: white; }
+        .btn-secondary { background: #64748b; color: white; }
     </style>
 </head>
 <body>
@@ -43,12 +54,11 @@
     </nav>
 
     <div class="container">
-        <!-- Section Kinés -->
+        
         <div id="kines" class="section active">
             <h2>L'équipe du cabinet</h2>
             <button class="btn-success" style="margin-bottom: 1rem;" onclick="document.getElementById('form-ajout-kine').style.display='block'">+ Ajouter un kiné</button>
             
-            <!-- Formulaire caché par défaut -->
             <div id="form-ajout-kine" class="form-container">
                 <form onsubmit="ajouterKine(event)">
                     <div class="form-group">
@@ -58,7 +68,7 @@
                         <input type="text" id="prenom-kine" placeholder="Prénom" required>
                     </div>
                     <button type="submit" class="btn-success">Enregistrer</button>
-                    <button type="button" onclick="document.getElementById('form-ajout-kine').style.display='none'">Annuler</button>
+                    <button type="button" class="btn-secondary" onclick="document.getElementById('form-ajout-kine').style.display='none'">Annuler</button>
                 </form>
             </div>
 
@@ -67,40 +77,66 @@
             </div>
         </div>
 
-        <!-- Section Remplaçants -->
         <div id="remplacants" class="section">
             <h2>Base de données Remplaçants</h2>
-            <button class="btn-success" style="margin-bottom: 1rem;">+ Nouveau remplaçant</button>
+            <button class="btn-success" style="margin-bottom: 1rem;" onclick="document.getElementById('form-ajout-remplacant').style.display='block'">+ Nouveau remplaçant</button>
+            
+            <div id="form-ajout-remplacant" class="form-container">
+                <form onsubmit="ajouterRemplacant(event)">
+                    <div class="form-group"><input type="text" id="nom-remp" placeholder="Nom" required></div>
+                    <div class="form-group"><input type="text" id="prenom-remp" placeholder="Prénom" required></div>
+                    <div class="form-group">
+                        <label for="ddn-remp">Date de naissance :</label>
+                        <input type="date" id="ddn-remp">
+                    </div>
+                    <div class="form-group"><input type="text" id="ldn-remp" placeholder="Lieu de naissance"></div>
+                    <div class="form-group"><input type="text" id="ordre-remp" placeholder="N° Conseil de l'Ordre"></div>
+                    <div class="form-group"><input type="text" id="adresse-remp" placeholder="Adresse postale"></div>
+                    <div class="form-group"><input type="tel" id="tel-remp" placeholder="Numéro de téléphone"></div>
+                    <div class="form-group"><input type="email" id="email-remp" placeholder="Email"></div>
+                    <div class="form-group"><input type="text" id="siret-remp" placeholder="N° URSSAF / SIRET"></div>
+                    
+                    <button type="submit" class="btn-success">Enregistrer</button>
+                    <button type="button" class="btn-secondary" onclick="document.getElementById('form-ajout-remplacant').style.display='none'">Annuler</button>
+                </form>
+            </div>
+
             <div class="card" id="liste-remplacants">
-                <p>À venir...</p>
+                <p>Chargement des remplaçants...</p>
             </div>
         </div>
 
-        <!-- Section Sessions -->
         <div id="sessions" class="section">
             <h2>Plannings et Rétrocessions</h2>
             <button class="btn-success" style="margin-bottom: 1rem;">+ Planifier un remplacement</button>
             <div class="card" id="liste-sessions">
-                <p>À venir...</p>
+                <p>Le module de planification sera configuré à la prochaine étape.</p>
             </div>
         </div>
     </div>
 
     <script>
-        // 1. Initialisation de Supabase (Variable renommée en "db")
+        // 1. Configuration de la connexion Supabase
         const supabaseUrl = 'https://fzlyucjfbjvbodqykihf.supabase.co';
         const supabaseKey = 'sb_publishable_472y-YwY-VyEsRz7nqaMJg_LC3W6gDJ';
         const db = window.supabase.createClient(supabaseUrl, supabaseKey);
 
-        // 2. Navigation entre les onglets
+        // 2. Gestion des onglets de navigation
         function showSection(id) {
             document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
             document.querySelectorAll('nav button').forEach(b => b.classList.remove('active'));
             document.getElementById(id).classList.add('active');
-            event.target.classList.add('active');
+            
+            // Recherche du bouton cliqué pour lui donner la classe active
+            const buttons = document.querySelectorAll('nav button');
+            buttons.forEach(btn => {
+                if(btn.getAttribute('onclick').includes(id)) {
+                    btn.classList.add('active');
+                }
+            });
         }
 
-        // 3. Lire les données
+        // 3. Fonctions pour la gestion des Kinés (Titulaires)
         async function chargerKines() {
             const container = document.getElementById('liste-kines');
             
@@ -110,8 +146,8 @@
                 .order('nom', { ascending: true });
 
             if (error) {
-                console.error("Erreur de chargement:", error);
-                container.innerHTML = "<p style='color: red;'>Erreur de connexion à la base.</p>";
+                console.error("Erreur de chargement des kinés:", error);
+                container.innerHTML = "<p style='color: red;'>Erreur lors de la récupération des données.</p>";
                 return;
             }
 
@@ -126,34 +162,96 @@
             }
         }
 
-        // 4. Ajouter une donnée
         async function ajouterKine(event) {
             event.preventDefault();
             
             const nom = document.getElementById('nom-kine').value;
             const prenom = document.getElementById('prenom-kine').value;
 
-            const { data, error } = await db
+            const { error } = await db
                 .from('kines')
                 .insert([{ nom: nom, prenom: prenom }]);
 
             if (error) {
                 alert("Erreur lors de l'enregistrement : " + error.message);
             } else {
-                // On vide et on cache
                 document.getElementById('nom-kine').value = '';
                 document.getElementById('prenom-kine').value = '';
                 document.getElementById('form-ajout-kine').style.display = 'none';
-                
-                // On rafraîchit la liste
                 chargerKines();
             }
         }
 
-        // Lancement initial
-        chargerKines();
+        // 4. Fonctions pour la gestion des Remplaçants
+        async function chargerRemplacants() {
+            const container = document.getElementById('liste-remplacants');
+            
+            const { data, error } = await db
+                .from('remplacants')
+                .select('*')
+                .order('nom', { ascending: true });
 
-        // PWA
+            if (error) {
+                console.error("Erreur de chargement des remplaçants:", error);
+                container.innerHTML = "<p style='color: red;'>Erreur lors du chargement des remplaçants.</p>";
+                return;
+            }
+
+            if (data.length === 0) {
+                container.innerHTML = "<p>Aucun remplaçant enregistré.</p>";
+            } else {
+                container.innerHTML = data.map(remp => `
+                    <div class="kine-item" style="flex-direction: column; align-items: flex-start; gap: 0.25rem;">
+                        <strong>${remp.nom.toUpperCase()} ${remp.prenom}</strong>
+                        <span style="font-size: 0.85em; color: #64748b;">
+                            📞 ${remp.telephone || 'Sans tel'} | ✉️ ${remp.email || 'Sans mail'} | 🧾 SIRET/URSSAF: ${remp.siret || 'Non renseigné'}
+                        </span>
+                    </div>
+                `).join('');
+            }
+        }
+
+        async function ajouterRemplacant(event) {
+            event.preventDefault();
+            
+            const nom = document.getElementById('nom-remp').value;
+            const prenom = document.getElementById('prenom-remp').value;
+            const date_naissance = document.getElementById('ddn-remp').value || null;
+            const lieu_naissance = document.getElementById('ldn-remp').value;
+            const num_ordre = document.getElementById('ordre-remp').value;
+            const adresse_postale = document.getElementById('adresse-remp').value;
+            const telephone = document.getElementById('tel-remp').value;
+            const email = document.getElementById('email-remp').value;
+            const siret = document.getElementById('siret-remp').value;
+
+            const { error } = await db
+                .from('remplacants')
+                .insert([{
+                    nom: nom, 
+                    prenom: prenom,
+                    date_naissance: date_naissance,
+                    lieu_naissance: lieu_naissance,
+                    num_ordre: num_ordre,
+                    adresse_postale: adresse_postale,
+                    telephone: telephone,
+                    email: email,
+                    siret: siret
+                }]);
+
+            if (error) {
+                alert("Erreur lors de l'enregistrement : " + error.message);
+            } else {
+                document.getElementById('form-ajout-remplacant').style.display = 'none';
+                event.target.reset(); 
+                chargerRemplacants();
+            }
+        }
+
+        // 5. Chargement initial des données au démarrage
+        chargerKines();
+        chargerRemplacants();
+
+        // 6. Enregistrement du Service Worker (PWA)
         if ('serviceWorker' in navigator) {
             navigator.serviceWorker.register('sw.js').catch(err => console.log('Erreur SW:', err));
         }

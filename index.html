@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gestion des Remplacements</title>
+    <link rel="manifest" href="manifest.json">
+    <style>
+        :root { --primary: #2563eb; --bg: #f8fafc; --text: #1e293b; }
+        body { font-family: system-ui, sans-serif; background: var(--bg); color: var(--text); margin: 0; padding: 0; }
+        header { background: var(--primary); color: white; padding: 1rem; text-align: center; }
+        nav { display: flex; gap: 1rem; padding: 1rem; background: white; border-bottom: 1px solid #e2e8f0; justify-content: center; }
+        button { padding: 0.5rem 1rem; border: none; background: #e2e8f0; border-radius: 6px; cursor: pointer; }
+        button.active { background: var(--primary); color: white; }
+        .container { padding: 2rem; max-width: 800px; margin: 0 auto; }
+        .section { display: none; }
+        .section.active { display: block; }
+        .card { background: white; padding: 1rem; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); margin-bottom: 1rem; }
+    </style>
+</head>
+<body>
+
+    <header>
+        <h1>Gestion Remplaçants</h1>
+    </header>
+
+    <nav>
+        <button class="active" onclick="showSection('kines')">Kinés</button>
+        <button onclick="showSection('remplacants')">Remplaçants</button>
+        <button onclick="showSection('sessions')">Sessions</button>
+    </nav>
+
+    <div class="container">
+        <!-- Section Kinés -->
+        <div id="kines" class="section active">
+            <h2>L'équipe du cabinet</h2>
+            <button style="margin-bottom: 1rem; background: #10b981; color: white;">+ Ajouter un kiné</button>
+            <div class="card" id="liste-kines">
+                <!-- Les kinés apparaîtront ici -->
+                <p>Chargement des kinés...</p>
+            </div>
+        </div>
+
+        <!-- Section Remplaçants -->
+        <div id="remplacants" class="section">
+            <h2>Base de données Remplaçants</h2>
+            <button style="margin-bottom: 1rem; background: #10b981; color: white;">+ Nouveau remplaçant</button>
+            <div class="card" id="liste-remplacants">
+                <!-- Les remplaçants apparaîtront ici -->
+            </div>
+        </div>
+
+        <!-- Section Sessions -->
+        <div id="sessions" class="section">
+            <h2>Plannings et Rétrocessions</h2>
+            <button style="margin-bottom: 1rem; background: #10b981; color: white;">+ Planifier un remplacement</button>
+            <div class="card" id="liste-sessions">
+                <!-- Les sessions apparaîtront ici -->
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Navigation simple entre les onglets
+        function showSection(id) {
+            document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+            document.querySelectorAll('nav button').forEach(b => b.classList.remove('active'));
+            document.getElementById(id).classList.add('active');
+            event.target.classList.add('active');
+        }
+
+        // Enregistrement du Service Worker pour la PWA
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.register('sw.js')
+                .then(() => console.log('Service Worker enregistré.'));
+        }
+    </script>
+</body>
+</html>

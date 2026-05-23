@@ -44,7 +44,7 @@
         .btn-warning { background: var(--warning); color: white; }
         .btn-secondary { background: #64748b; color: white; }
 
-        /* Styles pour la modale et les statuts */
+        /* Styles Modale et Badges */
         .nom-cliquable { cursor: pointer; color: var(--primary); text-decoration: underline; text-underline-offset: 2px; }
         .badge-en-cours { display: inline-block; background: var(--success); color: white; font-size: 0.75em; padding: 0.15rem 0.5rem; border-radius: 12px; margin-left: 0.5rem; font-weight: bold; }
         
@@ -53,6 +53,13 @@
         .close-btn { position: absolute; top: 10px; right: 15px; font-size: 1.5rem; cursor: pointer; border: none; background: none; color: #64748b; }
         .session-detail-item { margin-bottom: 1rem; padding: 0.75rem; background: #f8fafc; border-left: 4px solid #cbd5e1; border-radius: 4px; }
         .session-detail-item.active { border-left-color: var(--success); background: #ecfdf5; }
+        
+        /* Options de suivi administratif */
+        .admin-panel { display: flex; flex-wrap: wrap; gap: 1rem; font-size: 0.85em; align-items: center; background: #f8fafc; padding: 0.75rem; border-radius: 6px; margin-top: 0.75rem; border: 1px solid #e2e8f0; }
+        .admin-panel label { display: flex; align-items: center; gap: 0.3rem; cursor: pointer; color: #475569; font-weight: 500; }
+        .admin-panel input[type="checkbox"] { width: 1.1rem; height: 1.1rem; cursor: pointer; }
+        .admin-panel input[type="date"] { padding: 0.2rem; font-size: 0.9em; border: 1px solid #cbd5e1; border-radius: 4px; color: #334155; }
+        .alert-ordre { color: #b91c1c !important; background: #fef2f2; padding: 0.2rem 0.5rem; border-radius: 4px; border: 1px solid #f87171; }
     </style>
 </head>
 <body>
@@ -161,12 +168,9 @@
             buttons.forEach(btn => { if(btn.getAttribute('onclick').includes(id)) btn.classList.add('active'); });
         }
 
-        // --- VERIFICATION DATE ---
-        // Cette fonction vérifie si une liste de sessions contient une session active aujourd'hui
         function verifierSessionActive(sessionsList) {
             const today = new Date();
             today.setHours(0,0,0,0);
-            
             return sessionsList.some(s => {
                 const start = new Date(s.date_debut);
                 const end = new Date(s.date_fin);
@@ -176,36 +180,26 @@
             });
         }
 
-        // --- FONCTIONS RAFRAICHISSEMENT GLOBAL ---
-        // On charge les sessions AVANT les autres pour pouvoir afficher le statut "En cours"
         async function rafraichirTout() {
             await chargerSessions(); 
             await chargerKines();
             await chargerRemplacants();
         }
 
-        // --- GESTION DES KINÉS ---
+        // --- KINÉS ---
         async function chargerKines() {
             const container = document.getElementById('liste-kines');
             const { data, error } = await db.from('kines').select('*').order('nom', { ascending: true });
             if (error) return;
             localKines = data;
-
             if (data.length === 0) {
                 container.innerHTML = "<p>Aucun kiné enregistré.</p>";
             } else {
                 container.innerHTML = data.map(kine => {
-                    const sessionsKine = localSessions.filter(s => s.kine_id === kine.id);
-                    const enCours = verifierSessionActive(sessionsKine);
-                    const badge = enCours ? '<span class="badge-en-cours">En cours</span>' : '';
-
+                    const enCours = verifierSessionActive(localSessions.filter(s => s.kine_id === kine.id));
                     return `
                     <div class="kine-item">
-                        <div>
-                            <strong class="nom-cliquable" onclick="ouvrirModalKine('${kine.id}', '${kine.nom}', '${kine.prenom}')">
-                                ${kine.nom.toUpperCase()} ${kine.prenom}
-                            </strong> ${badge}
-                        </div>
+                        <div><strong class="nom-cliquable" onclick="ouvrirModalKine('${kine.id}', '${kine.nom}', '${kine.prenom}')">${kine.nom.toUpperCase()} ${kine.prenom}</strong> ${enCours ? '<span class="badge-en-cours">En cours</span>' : ''}</div>
                         <div class="actions-btn">
                             <button class="btn-warning btn-sm" onclick="preparerModifKine('${kine.id}')">Modifier</button>
                             <button class="btn-danger btn-sm" onclick="supprimerKine('${kine.id}')">Supprimer</button>
@@ -220,53 +214,35 @@
         
         function preparerModifKine(id) {
             const k = localKines.find(k => k.id === id);
-            document.getElementById('edit-id-kine').value = id;
-            document.getElementById('nom-kine').value = k.nom;
-            document.getElementById('prenom-kine').value = k.prenom;
-            document.getElementById('form-container-kine').style.display = 'block';
+            document.getElementById('edit-id-kine').value = id; document.getElementById('nom-kine').value = k.nom; document.getElementById('prenom-kine').value = k.prenom; document.getElementById('form-container-kine').style.display = 'block';
         }
 
         async function soumettreFormKine(event) {
             event.preventDefault();
             const id = document.getElementById('edit-id-kine').value;
             const payload = { nom: document.getElementById('nom-kine').value, prenom: document.getElementById('prenom-kine').value };
-            if (id) await db.from('kines').update(payload).eq('id', id);
-            else await db.from('kines').insert([payload]);
-            fermerFormKine();
-            rafraichirTout();
+            if (id) await db.from('kines').update(payload).eq('id', id); else await db.from('kines').insert([payload]);
+            fermerFormKine(); rafraichirTout();
         }
 
-        async function supprimerKine(id) {
-            if (confirm("Confirmez-vous la suppression ?")) { await db.from('kines').delete().eq('id', id); rafraichirTout(); }
-        }
+        async function supprimerKine(id) { if (confirm("Supprimer ce kiné ?")) { await db.from('kines').delete().eq('id', id); rafraichirTout(); } }
 
-        // --- GESTION DES REMPLAÇANTS ---
+        // --- REMPLAÇANTS ---
         async function chargerRemplacants() {
             const container = document.getElementById('liste-remplacants');
             const { data, error } = await db.from('remplacants').select('*').order('nom', { ascending: true });
             if (error) return;
             localRemplacants = data;
-
             if (data.length === 0) {
                 container.innerHTML = "<p>Aucun remplaçant enregistré.</p>";
             } else {
                 container.innerHTML = data.map(remp => {
-                    const sessionsRemp = localSessions.filter(s => s.remplacant_id === remp.id);
-                    const enCours = verifierSessionActive(sessionsRemp);
-                    const badge = enCours ? '<span class="badge-en-cours">En poste</span>' : '';
-
+                    const enCours = verifierSessionActive(localSessions.filter(s => s.remplacant_id === remp.id));
                     return `
                     <div class="kine-item" style="align-items: flex-start; gap: 0.5rem;">
                         <div style="flex-direction: column;">
-                            <div>
-                                <strong class="nom-cliquable" onclick="ouvrirModalRemp('${remp.id}', '${remp.nom}', '${remp.prenom}')">
-                                    ${remp.nom.toUpperCase()} ${remp.prenom}
-                                </strong> ${badge}
-                            </div>
-                            <div style="font-size: 0.85em; color: #64748b; margin-top:0.25rem;">
-                                📞 ${remp.telephone || '-'} | ✉️ ${remp.email || '-'}<br>
-                                🪪 Ordre: ${remp.num_ordre || '-'} | 🧾 SIRET: ${remp.siret || '-'}
-                            </div>
+                            <div><strong class="nom-cliquable" onclick="ouvrirModalRemp('${remp.id}', '${remp.nom}', '${remp.prenom}')">${remp.nom.toUpperCase()} ${remp.prenom}</strong> ${enCours ? '<span class="badge-en-cours">En poste</span>' : ''}</div>
+                            <div style="font-size: 0.85em; color: #64748b; margin-top:0.25rem;">📞 ${remp.telephone || '-'} | ✉️ ${remp.email || '-'}<br>🪪 Ordre: ${remp.num_ordre || '-'} | 🧾 SIRET: ${remp.siret || '-'}</div>
                         </div>
                         <div class="actions-btn">
                             <button class="btn-warning btn-sm" onclick="preparerModifRemp('${remp.id}')">Modifier</button>
@@ -282,44 +258,27 @@
         
         function preparerModifRemp(id) {
             const r = localRemplacants.find(x => x.id === id);
-            document.getElementById('edit-id-remp').value = r.id;
-            document.getElementById('nom-remp').value = r.nom;
-            document.getElementById('prenom-remp').value = r.prenom;
-            document.getElementById('ddn-remp').value = r.date_naissance || '';
-            document.getElementById('ldn-remp').value = r.lieu_naissance || '';
-            document.getElementById('ordre-remp').value = r.num_ordre || '';
-            document.getElementById('adresse-remp').value = r.adresse_postale || '';
-            document.getElementById('tel-remp').value = r.telephone || '';
-            document.getElementById('email-remp').value = r.email || '';
-            document.getElementById('siret-remp').value = r.siret || '';
+            document.getElementById('edit-id-remp').value = r.id; document.getElementById('nom-remp').value = r.nom; document.getElementById('prenom-remp').value = r.prenom; document.getElementById('ddn-remp').value = r.date_naissance || ''; document.getElementById('ldn-remp').value = r.lieu_naissance || ''; document.getElementById('ordre-remp').value = r.num_ordre || ''; document.getElementById('adresse-remp').value = r.adresse_postale || ''; document.getElementById('tel-remp').value = r.telephone || ''; document.getElementById('email-remp').value = r.email || ''; document.getElementById('siret-remp').value = r.siret || '';
             document.getElementById('form-container-remp').style.display = 'block';
         }
 
         async function soumettreFormRemp(event) {
             event.preventDefault();
             const id = document.getElementById('edit-id-remp').value;
-            const payload = {
-                nom: document.getElementById('nom-remp').value, prenom: document.getElementById('prenom-remp').value,
-                date_naissance: document.getElementById('ddn-remp').value || null, lieu_naissance: document.getElementById('ldn-remp').value,
-                num_ordre: document.getElementById('ordre-remp').value, adresse_postale: document.getElementById('adresse-remp').value,
-                telephone: document.getElementById('tel-remp').value, email: document.getElementById('email-remp').value, siret: document.getElementById('siret-remp').value
-            };
-            if (id) await db.from('remplacants').update(payload).eq('id', id);
-            else await db.from('remplacants').insert([payload]);
-            fermerFormRemp();
-            rafraichirTout();
+            const payload = { nom: document.getElementById('nom-remp').value, prenom: document.getElementById('prenom-remp').value, date_naissance: document.getElementById('ddn-remp').value || null, lieu_naissance: document.getElementById('ldn-remp').value, num_ordre: document.getElementById('ordre-remp').value, adresse_postale: document.getElementById('adresse-remp').value, telephone: document.getElementById('tel-remp').value, email: document.getElementById('email-remp').value, siret: document.getElementById('siret-remp').value };
+            if (id) await db.from('remplacants').update(payload).eq('id', id); else await db.from('remplacants').insert([payload]);
+            fermerFormRemp(); rafraichirTout();
         }
 
-        async function supprimerRemplacant(id) {
-            if (confirm("Confirmez-vous la suppression ?")) { await db.from('remplacants').delete().eq('id', id); rafraichirTout(); }
-        }
+        async function supprimerRemplacant(id) { if (confirm("Supprimer ce remplaçant ?")) { await db.from('remplacants').delete().eq('id', id); rafraichirTout(); } }
 
-        // --- GESTION DES SESSIONS ---
+        // --- SESSIONS ---
         async function chargerSessions() {
             const container = document.getElementById('liste-sessions');
-            // Récupération complète (on prend les ID pour le filtrage local, et les noms pour l'affichage)
+            // Ajout des nouveaux champs à la requête
             const { data, error } = await db.from('sessions_remplacement').select(`
-                id, kine_id, remplacant_id, date_debut, date_fin, taux_retro,
+                id, kine_id, remplacant_id, date_debut, date_fin, taux_retro, 
+                contrat_redige, contrat_transmis, retro_editee, date_paiement,
                 kines (nom, prenom), remplacants (nom, prenom)
             `).order('date_debut', { ascending: false });
 
@@ -329,6 +288,9 @@
             if (data.length === 0) {
                 container.innerHTML = "<p>Aucun remplacement planifié.</p>";
             } else {
+                const today = new Date();
+                today.setHours(0,0,0,0);
+
                 container.innerHTML = data.map(session => {
                     const dateDeb = new Date(session.date_debut).toLocaleDateString('fr-FR');
                     const dateFin = new Date(session.date_fin).toLocaleDateString('fr-FR');
@@ -338,16 +300,62 @@
                     const enCours = verifierSessionActive([session]);
                     const borderStyle = enCours ? "border-left: 4px solid var(--success); background: #ecfdf5;" : "";
 
+                    // Logique pour la date limite d'envoi à l'Ordre (+1 mois)
+                    const dateLimiteOrdre = new Date(session.date_debut);
+                    dateLimiteOrdre.setMonth(dateLimiteOrdre.getMonth() + 1);
+                    const retardOrdre = !session.contrat_transmis && (today > dateLimiteOrdre);
+                    const classeAlerteOrdre = retardOrdre ? "alert-ordre" : "";
+                    const iconeRetard = retardOrdre ? " ⚠️ Retard" : "";
+
                     return `
-                        <div class="kine-item" style="align-items: center; ${borderStyle}">
-                            <div style="flex-direction: column;">
-                                📅 <strong>Du ${dateDeb} au ${dateFin}</strong> ${enCours ? '<span class="badge-en-cours">En cours</span>' : ''}<br>
-                                <span style="font-size: 0.9em; color: #334155;">Titulaire : ${kineNom} 🔄 Remplaçant : ${rempNom}</span><br>
-                                <span style="font-size: 0.85em; font-weight: bold; color: var(--primary);">Taux Rétrocession : ${session.taux_retro}%</span>
+                        <div class="kine-item" style="flex-direction: column; align-items: stretch; ${borderStyle}">
+                            <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+                                <div>
+                                    📅 <strong>Du ${dateDeb} au ${dateFin}</strong> ${enCours ? '<span class="badge-en-cours">En cours</span>' : ''}<br>
+                                    <span style="font-size: 0.9em; color: #334155;">Titulaire : ${kineNom} 🔄 Remplaçant : ${rempNom}</span><br>
+                                    <span style="font-size: 0.85em; font-weight: bold; color: var(--primary);">Taux Rétrocession : ${session.taux_retro}%</span>
+                                </div>
+                                <button class="btn-danger btn-sm" onclick="supprimerSession('${session.id}')">Supprimer</button>
                             </div>
-                            <div><button class="btn-danger btn-sm" onclick="supprimerSession('${session.id}')">Supprimer</button></div>
+                            
+                            <div class="admin-panel">
+                                <label>
+                                    <input type="checkbox" ${session.contrat_redige ? 'checked' : ''} onchange="majStatutSession('${session.id}', 'contrat_redige', this.checked)"> 
+                                    Contrat rédigé
+                                </label>
+                                
+                                <label class="${classeAlerteOrdre}">
+                                    <input type="checkbox" ${session.contrat_transmis ? 'checked' : ''} onchange="majStatutSession('${session.id}', 'contrat_transmis', this.checked)"> 
+                                    Transmis à l'ordre ${iconeRetard}
+                                </label>
+                                
+                                <label>
+                                    <input type="checkbox" ${session.retro_editee ? 'checked' : ''} onchange="majStatutSession('${session.id}', 'retro_editee', this.checked)"> 
+                                    Rétrocession éditée
+                                </label>
+                                
+                                <label>
+                                    Paiement le :
+                                    <input type="date" value="${session.date_paiement || ''}" onchange="majStatutSession('${session.id}', 'date_paiement', this.value)">
+                                </label>
+                            </div>
                         </div>`;
                 }).join('');
+            }
+        }
+
+        // Fonction pour mettre à jour instantanément un statut administratif
+        async function majStatutSession(id, champ, valeur) {
+            const payload = {};
+            // Si la date est vidée, on envoie "null" à Supabase pour ne pas créer d'erreur
+            payload[champ] = valeur === '' ? null : valeur; 
+            
+            const { error } = await db.from('sessions_remplacement').update(payload).eq('id', id);
+            if (error) {
+                alert("Erreur de sauvegarde : " + error.message);
+            } else {
+                // On recharge pour mettre à jour les couleurs d'alerte instantanément
+                chargerSessions(); 
             }
         }
 
@@ -363,42 +371,29 @@
             event.preventDefault();
             const payload = {
                 kine_id: document.getElementById('select-kine').value, remplacant_id: document.getElementById('select-remp').value,
-                date_debut: document.getElementById('date-debut').value, date_fin: document.getElementById('date-fin').value,
-                taux_retro: parseFloat(document.getElementById('taux-retro').value)
+                date_debut: document.getElementById('date-debut').value, date_fin: document.getElementById('date-fin').value, taux_retro: parseFloat(document.getElementById('taux-retro').value)
             };
             await db.from('sessions_remplacement').insert([payload]);
             document.getElementById('form-container-session').style.display = 'none';
-            event.target.reset();
-            rafraichirTout();
+            event.target.reset(); rafraichirTout();
         }
 
-        async function supprimerSession(id) {
-            if (confirm("Annuler et supprimer ce remplacement ?")) { await db.from('sessions_remplacement').delete().eq('id', id); rafraichirTout(); }
-        }
+        async function supprimerSession(id) { if (confirm("Annuler et supprimer ce remplacement ?")) { await db.from('sessions_remplacement').delete().eq('id', id); rafraichirTout(); } }
 
-        // --- GESTION DE LA MODALE (POP-UP) ---
-        function fermerModal(event) {
-            if (event.target.id === 'modal-details') {
-                document.getElementById('modal-details').style.display = 'none';
-            }
-        }
+        // --- MODALE ---
+        function fermerModal(event) { if (event.target.id === 'modal-details') document.getElementById('modal-details').style.display = 'none'; }
         function fermerModalDirect() { document.getElementById('modal-details').style.display = 'none'; }
 
         function genererContenuModal(sessions, estKine) {
-            if (sessions.length === 0) return "<p>Aucun historique de remplacement.</p>";
-            
+            if (sessions.length === 0) return "<p>Aucun historique.</p>";
             return sessions.map(s => {
                 const dateDeb = new Date(s.date_debut).toLocaleDateString('fr-FR');
                 const dateFin = new Date(s.date_fin).toLocaleDateString('fr-FR');
                 const enCours = verifierSessionActive([s]);
                 const classeActive = enCours ? "active" : "";
-                
-                let interlocuteur = '';
-                if (estKine) {
-                    interlocuteur = s.remplacants ? `Remplacé par : <strong>${s.remplacants.nom.toUpperCase()} ${s.remplacants.prenom}</strong>` : 'Remplaçant inconnu';
-                } else {
-                    interlocuteur = s.kines ? `Remplace : <strong>${s.kines.nom.toUpperCase()} ${s.kines.prenom}</strong>` : 'Kiné inconnu';
-                }
+                const interlocuteur = estKine 
+                    ? (s.remplacants ? `Remplacé par : <strong>${s.remplacants.nom.toUpperCase()} ${s.remplacants.prenom}</strong>` : 'Inconnu')
+                    : (s.kines ? `Remplace : <strong>${s.kines.nom.toUpperCase()} ${s.kines.prenom}</strong>` : 'Inconnu');
 
                 return `
                 <div class="session-detail-item ${classeActive}">
@@ -423,12 +418,8 @@
             document.getElementById('modal-details').style.display = 'flex';
         }
 
-        // Démarrage
         rafraichirTout();
-
-        if ('serviceWorker' in navigator) {
-            navigator.serviceWorker.register('sw.js').catch(err => console.log(err));
-        }
+        if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(err => console.log(err));
     </script>
 </body>
 </html>

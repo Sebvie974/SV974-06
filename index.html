@@ -5,6 +5,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Gestion des Remplacements</title>
     <link rel="manifest" href="manifest.json">
+    
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
     <style>
         :root { --primary: #2563eb; --bg: #f8fafc; --text: #1e293b; }
         body { font-family: system-ui, sans-serif; background: var(--bg); color: var(--text); margin: 0; padding: 0; }
@@ -16,6 +19,15 @@
         .section { display: none; }
         .section.active { display: block; }
         .card { background: white; padding: 1rem; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); margin-bottom: 1rem; }
+        .kine-item { padding: 0.5rem; border-bottom: 1px solid #eee; display: flex; justify-content: space-between; align-items: center; }
+        .kine-item:last-child { border-bottom: none; }
+        
+        /* Styles pour les formulaires */
+        .form-container { display: none; background: #fff; padding: 1rem; border-radius: 8px; border: 1px solid #e2e8f0; margin-bottom: 1rem; }
+        .form-group { margin-bottom: 1rem; }
+        .form-group input { padding: 0.5rem; width: 100%; box-sizing: border-box; border: 1px solid #cbd5e1; border-radius: 4px; }
+        .btn-success { background: #10b981; color: white; }
+        .btn-danger { background: #ef4444; color: white; }
     </style>
 </head>
 <body>
@@ -34,9 +46,23 @@
         <!-- Section Kinés -->
         <div id="kines" class="section active">
             <h2>L'équipe du cabinet</h2>
-            <button style="margin-bottom: 1rem; background: #10b981; color: white;">+ Ajouter un kiné</button>
+            <button class="btn-success" style="margin-bottom: 1rem;" onclick="document.getElementById('form-ajout-kine').style.display='block'">+ Ajouter un kiné</button>
+            
+            <!-- Formulaire caché par défaut -->
+            <div id="form-ajout-kine" class="form-container">
+                <form onsubmit="ajouterKine(event)">
+                    <div class="form-group">
+                        <input type="text" id="nom-kine" placeholder="Nom" required>
+                    </div>
+                    <div class="form-group">
+                        <input type="text" id="prenom-kine" placeholder="Prénom" required>
+                    </div>
+                    <button type="submit" class="btn-success">Enregistrer</button>
+                    <button type="button" onclick="document.getElementById('form-ajout-kine').style.display='none'">Annuler</button>
+                </form>
+            </div>
+
             <div class="card" id="liste-kines">
-                <!-- Les kinés apparaîtront ici -->
                 <p>Chargement des kinés...</p>
             </div>
         </div>
@@ -44,24 +70,29 @@
         <!-- Section Remplaçants -->
         <div id="remplacants" class="section">
             <h2>Base de données Remplaçants</h2>
-            <button style="margin-bottom: 1rem; background: #10b981; color: white;">+ Nouveau remplaçant</button>
+            <button class="btn-success" style="margin-bottom: 1rem;">+ Nouveau remplaçant</button>
             <div class="card" id="liste-remplacants">
-                <!-- Les remplaçants apparaîtront ici -->
+                <p>À venir...</p>
             </div>
         </div>
 
         <!-- Section Sessions -->
         <div id="sessions" class="section">
             <h2>Plannings et Rétrocessions</h2>
-            <button style="margin-bottom: 1rem; background: #10b981; color: white;">+ Planifier un remplacement</button>
+            <button class="btn-success" style="margin-bottom: 1rem;">+ Planifier un remplacement</button>
             <div class="card" id="liste-sessions">
-                <!-- Les sessions apparaîtront ici -->
+                <p>À venir...</p>
             </div>
         </div>
     </div>
 
     <script>
-        // Navigation simple entre les onglets
+        // 1. Initialisation de Supabase avec tes identifiants
+        const supabaseUrl = 'https://fzlyucjfbjvbodqykihf.supabase.co';
+        const supabaseKey = 'sb_publishable_472y-YwY-VyEsRz7nqaMJg_LC3W6gDJ';
+        const supabase = supabase.createClient(supabaseUrl, supabaseKey);
+
+        // 2. Navigation entre les onglets
         function showSection(id) {
             document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
             document.querySelectorAll('nav button').forEach(b => b.classList.remove('active'));
@@ -69,10 +100,62 @@
             event.target.classList.add('active');
         }
 
-        // Enregistrement du Service Worker pour la PWA
+        // 3. Lire les données
+        async function chargerKines() {
+            const container = document.getElementById('liste-kines');
+            
+            const { data, error } = await supabase
+                .from('kines')
+                .select('*')
+                .order('nom', { ascending: true });
+
+            if (error) {
+                console.error("Erreur:", error);
+                container.innerHTML = "<p style='color: red;'>Erreur de connexion. As-tu bien désactivé le RLS sur Supabase ?</p>";
+                return;
+            }
+
+            if (data.length === 0) {
+                container.innerHTML = "<p>Aucun kiné enregistré pour le moment.</p>";
+            } else {
+                container.innerHTML = data.map(kine => `
+                    <div class="kine-item">
+                        <strong>${kine.nom.toUpperCase()} ${kine.prenom}</strong>
+                    </div>
+                `).join('');
+            }
+        }
+
+        // 4. Ajouter une donnée
+        async function ajouterKine(event) {
+            event.preventDefault(); // Empêche la page de se recharger
+            
+            const nom = document.getElementById('nom-kine').value;
+            const prenom = document.getElementById('prenom-kine').value;
+
+            const { data, error } = await supabase
+                .from('kines')
+                .insert([{ nom: nom, prenom: prenom }]);
+
+            if (error) {
+                alert("Erreur lors de l'enregistrement : " + error.message);
+            } else {
+                // On vide le formulaire et on le cache
+                document.getElementById('nom-kine').value = '';
+                document.getElementById('prenom-kine').value = '';
+                document.getElementById('form-ajout-kine').style.display = 'none';
+                
+                // On rafraîchit la liste
+                chargerKines();
+            }
+        }
+
+        // Lancement initial
+        chargerKines();
+
+        // PWA
         if ('serviceWorker' in navigator) {
-            navigator.serviceWorker.register('sw.js')
-                .then(() => console.log('Service Worker enregistré.'));
+            navigator.serviceWorker.register('sw.js').catch(err => console.log(err));
         }
     </script>
 </body>

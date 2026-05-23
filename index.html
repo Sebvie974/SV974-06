@@ -18,7 +18,11 @@
             --warning: #f59e0b;
         }
         body { font-family: system-ui, sans-serif; background: var(--bg); color: var(--text); margin: 0; padding: 0; }
-        header { background: var(--primary); color: white; padding: 1rem; text-align: center; }
+        
+        /* HEADER MODIFIÉ POUR LE BOUTON DÉCONNEXION */
+        header { background: var(--primary); color: white; padding: 1rem; text-align: center; position: relative; }
+        #btn-logout { position: absolute; top: 1rem; right: 1rem; display: none; }
+        
         nav { display: flex; gap: 1rem; padding: 1rem; background: white; border-bottom: 1px solid #e2e8f0; justify-content: center; }
         button { padding: 0.5rem 1rem; border: none; background: #e2e8f0; border-radius: 6px; cursor: pointer; font-weight: 500; }
         button.active { background: var(--primary); color: white; }
@@ -67,84 +71,103 @@
 
     <header>
         <h1>Gestion Remplaçants</h1>
+        <button id="btn-logout" class="btn-danger btn-sm" onclick="seDeconnecter()">Déconnexion</button>
     </header>
 
-    <nav>
-        <button class="active" onclick="showSection('kines')">Kinés</button>
-        <button onclick="showSection('remplacants')">Remplaçants</button>
-        <button onclick="showSection('sessions')">Sessions</button>
-    </nav>
-
-    <div class="container">
-        
-        <div id="kines" class="section active">
-            <h2>L'équipe du cabinet</h2>
-            <button class="btn-success" style="margin-bottom: 1rem;" onclick="ouvrirFormKine()">+ Ajouter un kiné</button>
-            
-            <div id="form-container-kine" class="form-container">
-                <h3 id="titre-form-kine">Ajouter un kiné</h3>
-                <form onsubmit="soumettreFormKine(event)">
-                    <input type="hidden" id="edit-id-kine">
-                    <div class="form-group"><input type="text" id="nom-kine" placeholder="Nom" required></div>
-                    <div class="form-group"><input type="text" id="prenom-kine" placeholder="Prénom" required></div>
-                    <button type="submit" class="btn-success">Enregistrer</button>
-                    <button type="button" class="btn-secondary" onclick="fermerFormKine()">Annuler</button>
-                </form>
-            </div>
-            <div class="card" id="liste-kines"><p>Chargement des kinés...</p></div>
-        </div>
-
-        <div id="remplacants" class="section">
-            <h2>Base de données Remplaçants</h2>
-            <button class="btn-success" style="margin-bottom: 1rem;" onclick="ouvrirFormRemp()">+ Nouveau remplaçant</button>
-            
-            <div id="form-container-remp" class="form-container">
-                <h3 id="titre-form-remp">Ajouter un remplaçant</h3>
-                <form onsubmit="soumettreFormRemp(event)">
-                    <input type="hidden" id="edit-id-remp">
-                    <div class="form-group"><input type="text" id="nom-remp" placeholder="Nom" required></div>
-                    <div class="form-group"><input type="text" id="prenom-remp" placeholder="Prénom" required></div>
-                    <div class="form-group"><label>Date de naissance :</label><input type="date" id="ddn-remp"></div>
-                    <div class="form-group"><input type="text" id="ldn-remp" placeholder="Lieu de naissance"></div>
-                    <div class="form-group"><input type="text" id="ordre-remp" placeholder="N° Conseil de l'Ordre"></div>
-                    <div class="form-group"><input type="text" id="adresse-remp" placeholder="Adresse postale"></div>
-                    <div class="form-group"><input type="tel" id="tel-remp" placeholder="Numéro de téléphone"></div>
-                    <div class="form-group"><input type="email" id="email-remp" placeholder="Email"></div>
-                    <div class="form-group"><input type="text" id="siret-remp" placeholder="N° URSSAF / SIRET"></div>
-                    <button type="submit" class="btn-success">Enregistrer</button>
-                    <button type="button" class="btn-secondary" onclick="fermerFormRemp()">Annuler</button>
-                </form>
-            </div>
-            <div class="card" id="liste-remplacants"><p>Chargement des remplaçants...</p></div>
-        </div>
-
-        <div id="sessions" class="section">
-            <h2>Plannings et Rétrocessions</h2>
-            <button class="btn-success" style="margin-bottom: 1rem;" onclick="ouvrirFormSession()">+ Planifier un remplacement</button>
-            
-            <div id="form-container-session" class="form-container">
-                <h3>Planifier un remplacement</h3>
-                <form onsubmit="ajouterSession(event)">
-                    <div class="form-group">
-                        <label>Kiné titulaire :</label>
-                        <select id="select-kine" required><option value="">Sélectionner...</option></select>
-                    </div>
-                    <div class="form-group">
-                        <label>Remplaçant :</label>
-                        <select id="select-remp" required><option value="">Sélectionner...</option></select>
-                    </div>
-                    <div class="form-group"><label>Date de début :</label><input type="date" id="date-debut" required></div>
-                    <div class="form-group"><label>Date de fin :</label><input type="date" id="date-fin" required></div>
-                    <div class="form-group"><label>Taux de rétrocession (%) :</label><input type="number" id="taux-retro" min="0" max="100" step="0.5" required></div>
-                    <button type="submit" class="btn-success">Créer la session</button>
-                    <button type="button" class="btn-secondary" onclick="document.getElementById('form-container-session').style.display='none'">Annuler</button>
-                </form>
-            </div>
-            <div class="card" id="liste-sessions"><p>Chargement des sessions...</p></div>
+    <div id="auth-section" class="container">
+        <div class="card" style="max-width: 400px; margin: 2rem auto;">
+            <h2 style="text-align: center; margin-top: 0;">Accès Sécurisé</h2>
+            <form onsubmit="seConnecter(event)">
+                <div class="form-group">
+                    <label>Email :</label>
+                    <input type="email" id="login-email" required>
+                </div>
+                <div class="form-group">
+                    <label>Mot de passe :</label>
+                    <input type="password" id="login-password" required>
+                </div>
+                <button type="submit" class="btn-success" style="width: 100%;">Se connecter</button>
+                <p id="auth-error" style="color: var(--danger); font-size: 0.85em; text-align: center; display: none; margin-top: 1rem;"></p>
+            </form>
         </div>
     </div>
 
-    <div id="modal-details" class="modal-overlay" onclick="fermerModal(event)">
+    <div id="app-section" style="display: none;">
+        <nav>
+            <button class="active" onclick="showSection('kines')">Kinés</button>
+            <button onclick="showSection('remplacants')">Remplaçants</button>
+            <button onclick="showSection('sessions')">Sessions</button>
+        </nav>
+
+        <div class="container">
+            
+            <div id="kines" class="section active">
+                <h2>L'équipe du cabinet</h2>
+                <button class="btn-success" style="margin-bottom: 1rem;" onclick="ouvrirFormKine()">+ Ajouter un kiné</button>
+                
+                <div id="form-container-kine" class="form-container">
+                    <h3 id="titre-form-kine">Ajouter un kiné</h3>
+                    <form onsubmit="soumettreFormKine(event)">
+                        <input type="hidden" id="edit-id-kine">
+                        <div class="form-group"><input type="text" id="nom-kine" placeholder="Nom" required></div>
+                        <div class="form-group"><input type="text" id="prenom-kine" placeholder="Prénom" required></div>
+                        <button type="submit" class="btn-success">Enregistrer</button>
+                        <button type="button" class="btn-secondary" onclick="fermerFormKine()">Annuler</button>
+                    </form>
+                </div>
+                <div class="card" id="liste-kines"><p>Chargement des kinés...</p></div>
+            </div>
+
+            <div id="remplacants" class="section">
+                <h2>Base de données Remplaçants</h2>
+                <button class="btn-success" style="margin-bottom: 1rem;" onclick="ouvrirFormRemp()">+ Nouveau remplaçant</button>
+                
+                <div id="form-container-remp" class="form-container">
+                    <h3 id="titre-form-remp">Ajouter un remplaçant</h3>
+                    <form onsubmit="soumettreFormRemp(event)">
+                        <input type="hidden" id="edit-id-remp">
+                        <div class="form-group"><input type="text" id="nom-remp" placeholder="Nom" required></div>
+                        <div class="form-group"><input type="text" id="prenom-remp" placeholder="Prénom" required></div>
+                        <div class="form-group"><label>Date de naissance :</label><input type="date" id="ddn-remp"></div>
+                        <div class="form-group"><input type="text" id="ldn-remp" placeholder="Lieu de naissance"></div>
+                        <div class="form-group"><input type="text" id="ordre-remp" placeholder="N° Conseil de l'Ordre"></div>
+                        <div class="form-group"><input type="text" id="adresse-remp" placeholder="Adresse postale"></div>
+                        <div class="form-group"><input type="tel" id="tel-remp" placeholder="Numéro de téléphone"></div>
+                        <div class="form-group"><input type="email" id="email-remp" placeholder="Email"></div>
+                        <div class="form-group"><input type="text" id="siret-remp" placeholder="N° URSSAF / SIRET"></div>
+                        <button type="submit" class="btn-success">Enregistrer</button>
+                        <button type="button" class="btn-secondary" onclick="fermerFormRemp()">Annuler</button>
+                    </form>
+                </div>
+                <div class="card" id="liste-remplacants"><p>Chargement des remplaçants...</p></div>
+            </div>
+
+            <div id="sessions" class="section">
+                <h2>Plannings et Rétrocessions</h2>
+                <button class="btn-success" style="margin-bottom: 1rem;" onclick="ouvrirFormSession()">+ Planifier un remplacement</button>
+                
+                <div id="form-container-session" class="form-container">
+                    <h3>Planifier un remplacement</h3>
+                    <form onsubmit="ajouterSession(event)">
+                        <div class="form-group">
+                            <label>Kiné titulaire :</label>
+                            <select id="select-kine" required><option value="">Sélectionner...</option></select>
+                        </div>
+                        <div class="form-group">
+                            <label>Remplaçant :</label>
+                            <select id="select-remp" required><option value="">Sélectionner...</option></select>
+                        </div>
+                        <div class="form-group"><label>Date de début :</label><input type="date" id="date-debut" required></div>
+                        <div class="form-group"><label>Date de fin :</label><input type="date" id="date-fin" required></div>
+                        <div class="form-group"><label>Taux de rétrocession (%) :</label><input type="number" id="taux-retro" min="0" max="100" step="0.5" required></div>
+                        <button type="submit" class="btn-success">Créer la session</button>
+                        <button type="button" class="btn-secondary" onclick="document.getElementById('form-container-session').style.display='none'">Annuler</button>
+                    </form>
+                </div>
+                <div class="card" id="liste-sessions"><p>Chargement des sessions...</p></div>
+            </div>
+        </div>
+    </div> <div id="modal-details" class="modal-overlay" onclick="fermerModal(event)">
         <div class="modal-content" onclick="event.stopPropagation()">
             <button class="close-btn" onclick="fermerModalDirect()">&times;</button>
             <h3 id="modal-titre">Détails</h3>
@@ -161,6 +184,51 @@
         let localRemplacants = [];
         let localSessions = [];
 
+        // --- GESTION DE L'AUTHENTIFICATION ---
+        async function verifierSession() {
+            // Demande à Supabase si l'utilisateur est déjà connecté en mémoire
+            const { data: { session } } = await db.auth.getSession();
+            basculerAffichageApp(!!session);
+        }
+
+        function basculerAffichageApp(estConnecte) {
+            document.getElementById('auth-section').style.display = estConnecte ? 'none' : 'block';
+            document.getElementById('app-section').style.display = estConnecte ? 'block' : 'none';
+            document.getElementById('btn-logout').style.display = estConnecte ? 'inline-block' : 'none';
+            
+            if (estConnecte) {
+                rafraichirTout(); // Charge les données uniquement si connecté
+            }
+        }
+
+        async function seConnecter(event) {
+            event.preventDefault();
+            const email = document.getElementById('login-email').value;
+            const password = document.getElementById('login-password').value;
+            const erreurTxt = document.getElementById('auth-error');
+
+            const { data, error } = await db.auth.signInWithPassword({
+                email: email,
+                password: password,
+            });
+
+            if (error) {
+                erreurTxt.innerText = "Identifiants incorrects ou sécurité mal configurée.";
+                erreurTxt.style.display = 'block';
+            } else {
+                erreurTxt.style.display = 'none';
+                document.getElementById('login-email').value = '';
+                document.getElementById('login-password').value = '';
+                basculerAffichageApp(true);
+            }
+        }
+
+        async function seDeconnecter() {
+            await db.auth.signOut();
+            basculerAffichageApp(false);
+        }
+
+        // --- NAVIGATION ET UTILITAIRES ---
         function showSection(id) {
             document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
             document.querySelectorAll('nav button').forEach(b => b.classList.remove('active'));
@@ -296,14 +364,12 @@
                     const dateFin = new Date(session.date_fin).toLocaleDateString('fr-FR');
                     const kineNom = session.kines ? `${session.kines.nom.toUpperCase()} ${session.kines.prenom}` : 'Inconnu';
                     
-                    // Nouveau : Le nom du remplaçant est cliquable pour ouvrir sa fiche d'informations
                     const rempNom = session.remplacants 
                         ? `<strong class="nom-cliquable" onclick="ouvrirModalInfoRemp('${session.remplacant_id}')">${session.remplacants.nom.toUpperCase()} ${session.remplacants.prenom}</strong>` 
                         : 'Inconnu';
 
                     const enCours = verifierSessionActive([session]);
                     
-                    // Logique pour le badge "Terminé"
                     const dateFinObj = new Date(session.date_fin);
                     dateFinObj.setHours(23,59,59,999);
                     const estTermine = today > dateFinObj;
@@ -360,7 +426,6 @@
         async function majStatutSession(id, champ, valeur) {
             const payload = {};
             payload[champ] = valeur === '' ? null : valeur; 
-            
             const { error } = await db.from('sessions_remplacement').update(payload).eq('id', id);
             if (error) alert("Erreur de sauvegarde : " + error.message);
             else chargerSessions(); 
@@ -376,10 +441,7 @@
 
         async function ajouterSession(event) {
             event.preventDefault();
-            const payload = {
-                kine_id: document.getElementById('select-kine').value, remplacant_id: document.getElementById('select-remp').value,
-                date_debut: document.getElementById('date-debut').value, date_fin: document.getElementById('date-fin').value, taux_retro: parseFloat(document.getElementById('taux-retro').value)
-            };
+            const payload = { kine_id: document.getElementById('select-kine').value, remplacant_id: document.getElementById('select-remp').value, date_debut: document.getElementById('date-debut').value, date_fin: document.getElementById('date-fin').value, taux_retro: parseFloat(document.getElementById('taux-retro').value) };
             await db.from('sessions_remplacement').insert([payload]);
             document.getElementById('form-container-session').style.display = 'none';
             event.target.reset(); rafraichirTout();
@@ -411,7 +473,6 @@
             }).join('');
         }
 
-        // Modale : Historique Titulaire
         function ouvrirModalKine(kineId, nom, prenom) {
             const sessionsDuKine = localSessions.filter(s => s.kine_id === kineId);
             document.getElementById('modal-titre').innerText = `Historique de ${nom.toUpperCase()} ${prenom}`;
@@ -419,7 +480,6 @@
             document.getElementById('modal-details').style.display = 'flex';
         }
 
-        // Modale : Historique Remplaçant
         function ouvrirModalRemp(rempId, nom, prenom) {
             const sessionsDuRemp = localSessions.filter(s => s.remplacant_id === rempId);
             document.getElementById('modal-titre').innerText = `Planning de ${nom.toUpperCase()} ${prenom}`;
@@ -427,15 +487,11 @@
             document.getElementById('modal-details').style.display = 'flex';
         }
 
-        // Nouvelle Modale : Fiche Contact Remplaçant (depuis les sessions)
         function ouvrirModalInfoRemp(rempId) {
             const remp = localRemplacants.find(r => r.id === rempId);
             if (!remp) return;
-            
             document.getElementById('modal-titre').innerText = `Fiche de ${remp.nom.toUpperCase()} ${remp.prenom}`;
-            
             const ddn = remp.date_naissance ? new Date(remp.date_naissance).toLocaleDateString('fr-FR') : 'Non renseignée';
-            
             document.getElementById('modal-contenu').innerHTML = `
                 <div class="session-detail-item" style="border-left-color: var(--primary); background: #f8fafc;">
                     <p style="margin: 0.5rem 0;"><strong>📞 Téléphone :</strong> ${remp.telephone || 'Non renseigné'}</p>
@@ -450,7 +506,9 @@
             document.getElementById('modal-details').style.display = 'flex';
         }
 
-        rafraichirTout();
+        // Lancement au démarrage de la page
+        verifierSession();
+
         if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(err => console.log(err));
     </script>
 </body>

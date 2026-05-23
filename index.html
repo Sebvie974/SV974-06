@@ -15,6 +15,7 @@
             --text: #1e293b; 
             --success: #10b981;
             --danger: #ef4444;
+            --warning: #f59e0b;
         }
         body { font-family: system-ui, sans-serif; background: var(--bg); color: var(--text); margin: 0; padding: 0; }
         header { background: var(--primary); color: white; padding: 1rem; text-align: center; }
@@ -30,14 +31,18 @@
         .kine-item { padding: 0.75rem; border-bottom: 1px solid #f1f5f9; display: flex; justify-content: space-between; align-items: center; }
         .kine-item:last-child { border-bottom: none; }
         
+        .actions-btn { display: flex; gap: 0.5rem; }
+        .btn-sm { padding: 0.25rem 0.5rem; font-size: 0.85em; border-radius: 4px; }
+
         /* Styles pour les formulaires */
         .form-container { display: none; background: #fff; padding: 1.5rem; border-radius: 8px; border: 1px solid #e2e8f0; margin-bottom: 1.5rem; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); }
         .form-group { margin-bottom: 1rem; }
-        .form-group label { display: block; font-size: 0.85em; color: #64748b; margin-bottom: 0.25rem; }
-        .form-group input { padding: 0.5rem; width: 100%; box-sizing: border-box; border: 1px solid #cbd5e1; border-radius: 4px; font-size: 1rem; }
+        .form-group label { display: block; font-size: 0.85em; color: #64748b; margin-bottom: 0.25rem; font-weight: bold; }
+        .form-group input, .form-group select { padding: 0.5rem; width: 100%; box-sizing: border-box; border: 1px solid #cbd5e1; border-radius: 4px; font-size: 1rem; background: white; }
         
         .btn-success { background: var(--success); color: white; }
         .btn-danger { background: var(--danger); color: white; }
+        .btn-warning { background: var(--warning); color: white; }
         .btn-secondary { background: #64748b; color: white; }
     </style>
 </head>
@@ -57,10 +62,12 @@
         
         <div id="kines" class="section active">
             <h2>L'équipe du cabinet</h2>
-            <button class="btn-success" style="margin-bottom: 1rem;" onclick="document.getElementById('form-ajout-kine').style.display='block'">+ Ajouter un kiné</button>
+            <button class="btn-success" style="margin-bottom: 1rem;" onclick="ouvrirFormKine()">+ Ajouter un kiné</button>
             
-            <div id="form-ajout-kine" class="form-container">
-                <form onsubmit="ajouterKine(event)">
+            <div id="form-container-kine" class="form-container">
+                <h3 id="titre-form-kine">Ajouter un kiné</h3>
+                <form onsubmit="soumettreFormKine(event)">
+                    <input type="hidden" id="edit-id-kine">
                     <div class="form-group">
                         <input type="text" id="nom-kine" placeholder="Nom" required>
                     </div>
@@ -68,7 +75,7 @@
                         <input type="text" id="prenom-kine" placeholder="Prénom" required>
                     </div>
                     <button type="submit" class="btn-success">Enregistrer</button>
-                    <button type="button" class="btn-secondary" onclick="document.getElementById('form-ajout-kine').style.display='none'">Annuler</button>
+                    <button type="button" class="btn-secondary" onclick="fermerFormKine()">Annuler</button>
                 </form>
             </div>
 
@@ -79,10 +86,12 @@
 
         <div id="remplacants" class="section">
             <h2>Base de données Remplaçants</h2>
-            <button class="btn-success" style="margin-bottom: 1rem;" onclick="document.getElementById('form-ajout-remplacant').style.display='block'">+ Nouveau remplaçant</button>
+            <button class="btn-success" style="margin-bottom: 1rem;" onclick="ouvrirFormRemp()">+ Nouveau remplaçant</button>
             
-            <div id="form-ajout-remplacant" class="form-container">
-                <form onsubmit="ajouterRemplacant(event)">
+            <div id="form-container-remp" class="form-container">
+                <h3 id="titre-form-remp">Ajouter un remplaçant</h3>
+                <form onsubmit="soumettreFormRemp(event)">
+                    <input type="hidden" id="edit-id-remp">
                     <div class="form-group"><input type="text" id="nom-remp" placeholder="Nom" required></div>
                     <div class="form-group"><input type="text" id="prenom-remp" placeholder="Prénom" required></div>
                     <div class="form-group">
@@ -97,7 +106,7 @@
                     <div class="form-group"><input type="text" id="siret-remp" placeholder="N° URSSAF / SIRET"></div>
                     
                     <button type="submit" class="btn-success">Enregistrer</button>
-                    <button type="button" class="btn-secondary" onclick="document.getElementById('form-ajout-remplacant').style.display='none'">Annuler</button>
+                    <button type="button" class="btn-secondary" onclick="fermerFormRemp()">Annuler</button>
                 </form>
             </div>
 
@@ -108,9 +117,39 @@
 
         <div id="sessions" class="section">
             <h2>Plannings et Rétrocessions</h2>
-            <button class="btn-success" style="margin-bottom: 1rem;">+ Planifier un remplacement</button>
+            <button class="btn-success" style="margin-bottom: 1rem;" onclick="ouvrirFormSession()">+ Planifier un remplacement</button>
+            
+            <div id="form-container-session" class="form-container">
+                <h3>Planifier un remplacement</h3>
+                <form onsubmit="ajouterSession(event)">
+                    <div class="form-group">
+                        <label for="select-kine">Kiné titulaire :</label>
+                        <select id="select-kine" required><option value="">Sélectionner...</option></select>
+                    </div>
+                    <div class="form-group">
+                        <label for="select-remp">Remplaçant :</label>
+                        <select id="select-remp" required><option value="">Sélectionner...</option></select>
+                    </div>
+                    <div class="form-group">
+                        <label for="date-debut">Date de début :</label>
+                        <input type="date" id="date-debut" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="date-fin">Date de fin :</label>
+                        <input type="date" id="date-fin" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="taux-retro">Taux de rétrocession (% appliqué au titulaire) :</label>
+                        <input type="number" id="taux-retro" min="0" max="100" step="0.5" placeholder="Ex: 75" required>
+                    </div>
+                    
+                    <button type="submit" class="btn-success">Créer la session</button>
+                    <button type="button" class="btn-secondary" onclick="document.getElementById('form-container-session').style.display='none'">Annuler</button>
+                </form>
+            </div>
+
             <div class="card" id="liste-sessions">
-                <p>Le module de planification sera configuré à la prochaine étape.</p>
+                <p>Chargement des sessions...</p>
             </div>
         </div>
     </div>
@@ -121,13 +160,16 @@
         const supabaseKey = 'sb_publishable_472y-YwY-VyEsRz7nqaMJg_LC3W6gDJ';
         const db = window.supabase.createClient(supabaseUrl, supabaseKey);
 
+        // Variables globales pour stocker les listes en mémoire (utile pour les modifications et les sélections)
+        let localKines = [];
+        let localRemplacants = [];
+
         // 2. Gestion des onglets de navigation
         function showSection(id) {
             document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
             document.querySelectorAll('nav button').forEach(b => b.classList.remove('active'));
             document.getElementById(id).classList.add('active');
             
-            // Recherche du bouton cliqué pour lui donner la classe active
             const buttons = document.querySelectorAll('nav button');
             buttons.forEach(btn => {
                 if(btn.getAttribute('onclick').includes(id)) {
@@ -136,122 +178,268 @@
             });
         }
 
-        // 3. Fonctions pour la gestion des Kinés (Titulaires)
+        // --- 3. GESTION DES KINÉS ---
         async function chargerKines() {
             const container = document.getElementById('liste-kines');
-            
-            const { data, error } = await db
-                .from('kines')
-                .select('*')
-                .order('nom', { ascending: true });
+            const { data, error } = await db.from('kines').select('*').order('nom', { ascending: true });
 
-            if (error) {
-                console.error("Erreur de chargement des kinés:", error);
-                container.innerHTML = "<p style='color: red;'>Erreur lors de la récupération des données.</p>";
-                return;
-            }
+            if (error) { container.innerHTML = "<p style='color: red;'>Erreur de chargement.</p>"; return; }
+            localKines = data;
 
             if (data.length === 0) {
-                container.innerHTML = "<p>Aucun kiné enregistré pour le moment.</p>";
+                container.innerHTML = "<p>Aucun kiné enregistré.</p>";
             } else {
                 container.innerHTML = data.map(kine => `
                     <div class="kine-item">
                         <strong>${kine.nom.toUpperCase()} ${kine.prenom}</strong>
+                        <div class="actions-btn">
+                            <button class="btn-warning btn-sm" onclick="preparerModifKine('${kine.id}', '${kine.nom}', '${kine.prenom}')">Modifier</button>
+                            <button class="btn-danger btn-sm" onclick="supprimerKine('${kine.id}', '${kine.nom} ${kine.prenom}')">Supprimer</button>
+                        </div>
                     </div>
                 `).join('');
             }
         }
 
-        async function ajouterKine(event) {
+        function ouvrirFormKine() {
+            document.getElementById('edit-id-kine').value = '';
+            document.getElementById('nom-kine').value = '';
+            document.getElementById('prenom-kine').value = '';
+            document.getElementById('titre-form-kine').innerText = "Ajouter un kiné";
+            document.getElementById('form-container-kine').style.display = 'block';
+        }
+
+        function fermerFormKine() { document.getElementById('form-container-kine').style.display = 'none'; }
+
+        function preparerModifKine(id, nom, prenom) {
+            document.getElementById('edit-id-kine').value = id;
+            document.getElementById('nom-kine').value = nom;
+            document.getElementById('prenom-kine').value = prenom;
+            document.getElementById('titre-form-kine').innerText = "Modifier le kiné";
+            document.getElementById('form-container-kine').style.display = 'block';
+        }
+
+        async function soumettreFormKine(event) {
             event.preventDefault();
-            
+            const id = document.getElementById('edit-id-kine').value;
             const nom = document.getElementById('nom-kine').value;
             const prenom = document.getElementById('prenom-kine').value;
 
-            const { error } = await db
-                .from('kines')
-                .insert([{ nom: nom, prenom: prenom }]);
-
-            if (error) {
-                alert("Erreur lors de l'enregistrement : " + error.message);
+            if (id) {
+                // Modification
+                const { error } = await db.from('kines').update({ nom: nom, prenom: prenom }).eq('id', id);
+                if (error) alert("Erreur : " + error.message);
             } else {
-                document.getElementById('nom-kine').value = '';
-                document.getElementById('prenom-kine').value = '';
-                document.getElementById('form-ajout-kine').style.display = 'none';
+                // Ajout
+                const { error } = await db.from('kines').insert([{ nom: nom, prenom: prenom }]);
+                if (error) alert("Erreur : " + error.message);
+            }
+            fermerFormKine();
+            chargerKines();
+        }
+
+        async function supprimerKine(id, identite) {
+            if (confirm(`Confirmez-vous la suppression définitive de ${identite} ?`)) {
+                const { error } = await db.from('kines').delete().eq('id', id);
+                if (error) alert("Erreur : " + error.message);
                 chargerKines();
             }
         }
 
-        // 4. Fonctions pour la gestion des Remplaçants
+
+        // --- 4. GESTION DES REMPLAÇANTS ---
         async function chargerRemplacants() {
             const container = document.getElementById('liste-remplacants');
-            
-            const { data, error } = await db
-                .from('remplacants')
-                .select('*')
-                .order('nom', { ascending: true });
+            const { data, error } = await db.from('remplacants').select('*').order('nom', { ascending: true });
 
-            if (error) {
-                console.error("Erreur de chargement des remplaçants:", error);
-                container.innerHTML = "<p style='color: red;'>Erreur lors du chargement des remplaçants.</p>";
-                return;
-            }
+            if (error) { container.innerHTML = "<p style='color: red;'>Erreur de chargement.</p>"; return; }
+            localRemplacants = data;
 
             if (data.length === 0) {
                 container.innerHTML = "<p>Aucun remplaçant enregistré.</p>";
             } else {
                 container.innerHTML = data.map(remp => `
-                    <div class="kine-item" style="flex-direction: column; align-items: flex-start; gap: 0.25rem;">
-                        <strong>${remp.nom.toUpperCase()} ${remp.prenom}</strong>
-                        <span style="font-size: 0.85em; color: #64748b;">
-                            📞 ${remp.telephone || 'Sans tel'} | ✉️ ${remp.email || 'Sans mail'} | 🧾 SIRET/URSSAF: ${remp.siret || 'Non renseigné'}
-                        </span>
+                    <div class="kine-item" style="align-items: flex-start; gap: 0.5rem;">
+                        <div style="flex-direction: column;">
+                            <strong>${remp.nom.toUpperCase()} ${remp.prenom}</strong>
+                            <div style="font-size: 0.85em; color: #64748b; margin-top:0.25rem;">
+                                📞 ${remp.telephone || 'Sans tel'} | ✉️ ${remp.email || 'Sans mail'}<br>
+                                🪪 N° Ordre: ${remp.num_ordre || 'Non renseigné'} | 🧾 SIRET: ${remp.siret || 'Non renseigné'}
+                            </div>
+                        </div>
+                        <div class="actions-btn">
+                            <button class="btn-warning btn-sm" onclick="preparerModifRemp('${remp.id}')">Modifier</button>
+                            <button class="btn-danger btn-sm" onclick="supprimerRemplacant('${remp.id}', '${remp.nom} ${remp.prenom}')">Supprimer</button>
+                        </div>
                     </div>
                 `).join('');
             }
         }
 
-        async function ajouterRemplacant(event) {
+        function ouvrirFormRemp() {
+            document.getElementById('edit-id-remp').value = '';
+            document.getElementById('form-container-remp').querySelector('form').reset();
+            document.getElementById('titre-form-remp').innerText = "Ajouter un remplaçant";
+            document.getElementById('form-container-remp').style.display = 'block';
+        }
+
+        function fermerFormRemp() { document.getElementById('form-container-remp').style.display = 'none'; }
+
+        function preparerModifRemp(id) {
+            const remp = localRemplacants.find(r => r.id === id);
+            if (!remp) return;
+
+            document.getElementById('edit-id-remp').value = remp.id;
+            document.getElementById('nom-remp').value = remp.nom;
+            document.getElementById('prenom-remp').value = remp.prenom;
+            document.getElementById('ddn-remp').value = remp.date_naissance || '';
+            document.getElementById('ldn-remp').value = remp.lieu_naissance || '';
+            document.getElementById('ordre-remp').value = remp.num_ordre || '';
+            document.getElementById('adresse-remp').value = remp.adresse_postale || '';
+            document.getElementById('tel-remp').value = remp.telephone || '';
+            document.getElementById('email-remp').value = remp.email || '';
+            document.getElementById('siret-remp').value = remp.siret || '';
+
+            document.getElementById('titre-form-remp').innerText = "Modifier le remplaçant";
+            document.getElementById('form-container-remp').style.display = 'block';
+        }
+
+        async function soumettreFormRemp(event) {
             event.preventDefault();
+            const id = document.getElementById('edit-id-remp').value;
             
-            const nom = document.getElementById('nom-remp').value;
-            const prenom = document.getElementById('prenom-remp').value;
-            const date_naissance = document.getElementById('ddn-remp').value || null;
-            const lieu_naissance = document.getElementById('ldn-remp').value;
-            const num_ordre = document.getElementById('ordre-remp').value;
-            const adresse_postale = document.getElementById('adresse-remp').value;
-            const telephone = document.getElementById('tel-remp').value;
-            const email = document.getElementById('email-remp').value;
-            const siret = document.getElementById('siret-remp').value;
+            const payload = {
+                nom: document.getElementById('nom-remp').value,
+                prenom: document.getElementById('prenom-remp').value,
+                date_naissance: document.getElementById('ddn-remp').value || null,
+                lieu_naissance: document.getElementById('ldn-remp').value,
+                num_ordre: document.getElementById('ordre-remp').value,
+                adresse_postale: document.getElementById('adresse-remp').value,
+                telephone: document.getElementById('tel-remp').value,
+                email: document.getElementById('email-remp').value,
+                siret: document.getElementById('siret-remp').value
+            };
 
-            const { error } = await db
-                .from('remplacants')
-                .insert([{
-                    nom: nom, 
-                    prenom: prenom,
-                    date_naissance: date_naissance,
-                    lieu_naissance: lieu_naissance,
-                    num_ordre: num_ordre,
-                    adresse_postale: adresse_postale,
-                    telephone: telephone,
-                    email: email,
-                    siret: siret
-                }]);
-
-            if (error) {
-                alert("Erreur lors de l'enregistrement : " + error.message);
+            if (id) {
+                const { error } = await db.from('remplacants').update(payload).eq('id', id);
+                if (error) alert("Erreur : " + error.message);
             } else {
-                document.getElementById('form-ajout-remplacant').style.display = 'none';
-                event.target.reset(); 
+                const { error } = await db.from('remplacants').insert([payload]);
+                if (error) alert("Erreur : " + error.message);
+            }
+            fermerFormRemp();
+            chargerRemplacants();
+        }
+
+        async function supprimerRemplacant(id, identite) {
+            if (confirm(`Confirmez-vous la suppression définitive de ${identite} ?`)) {
+                const { error } = await db.from('remplacants').delete().eq('id', id);
+                if (error) alert("Erreur : " + error.message);
                 chargerRemplacants();
             }
         }
 
-        // 5. Chargement initial des données au démarrage
-        chargerKines();
-        chargerRemplacants();
 
-        // 6. Enregistrement du Service Worker (PWA)
+        // --- 5. GESTION DES SESSIONS DE REMPLACEMENT ---
+        async function chargerSessions() {
+            const container = document.getElementById('liste-sessions');
+            
+            // On demande à Supabase de joindre les infos des tables kines et remplacants directement
+            const { data, error } = await db
+                .from('sessions_remplacement')
+                .select(`
+                    id, date_debut, date_fin, taux_retro,
+                    kines (nom, prenom),
+                    remplacants (nom, prenom)
+                `)
+                .order('date_debut', { ascending: false });
+
+            if (error) { console.error(error); container.innerHTML = "<p style='color: red;'>Erreur de chargement.</p>"; return; }
+
+            if (data.length === 0) {
+                container.innerHTML = "<p>Aucun remplacement planifié.</p>";
+            } else {
+                container.innerHTML = data.map(session => {
+                    const dateDeb = new Date(session.date_debut).toLocaleDateString('fr-FR');
+                    const dateFin = new Date(session.date_fin).toLocaleDateString('fr-FR');
+                    const kineNom = session.kines ? `${session.kines.nom.toUpperCase()} ${session.kines.prenom}` : 'Inconnu';
+                    const rempNom = session.remplacants ? `${session.remplacants.nom.toUpperCase()} ${session.remplacants.prenom}` : 'Inconnu';
+
+                    return `
+                        <div class="kine-item" style="align-items: center;">
+                            <div style="flex-direction: column;">
+                                📅 <strong>Du ${dateDeb} au ${dateFin}</strong><br>
+                                <span style="font-size: 0.9em; color: #334155;">
+                                    Titulaire : ${kineNom} 🔄 Remplaçant : ${rempNom}
+                                </span><br>
+                                <span style="font-size: 0.85em; font-weight: bold; color: var(--primary);">
+                                    Taux Rétrocession : ${session.taux_retro}%
+                                </span>
+                            </div>
+                            <div>
+                                <button class="btn-danger btn-sm" onclick="supprimerSession('${session.id}')">Supprimer</button>
+                            </div>
+                        </div>
+                    `;
+                }).join('');
+            }
+        }
+
+        function ouvrirFormSession() {
+            // Remplir les menus déroulants dynamiquement
+            const selectKine = document.getElementById('select-kine');
+            const selectRemp = document.getElementById('select-remp');
+
+            selectKine.innerHTML = '<option value="">Sélectionner un titulaire...</option>' + 
+                localKines.map(k => `<option value="${k.id}">${k.nom.toUpperCase()} ${k.prenom}</option>`).join('');
+                
+            selectRemp.innerHTML = '<option value="">Sélectionner un remplaçant...</option>' + 
+                localRemplacants.map(r => `<option value="${r.id}">${r.nom.toUpperCase()} ${r.prenom}</option>`).join('');
+
+            document.getElementById('form-container-session').style.display = 'block';
+        }
+
+        async function ajouterSession(event) {
+            event.preventDefault();
+            
+            const payload = {
+                kine_id: document.getElementById('select-kine').value,
+                remplacant_id: document.getElementById('select-remp').value,
+                date_debut: document.getElementById('date-debut').value,
+                date_fin: document.getElementById('date-fin').value,
+                taux_retro: parseFloat(document.getElementById('taux-retro').value)
+            };
+
+            const { error } = await db.from('sessions_remplacement').insert([payload]);
+
+            if (error) {
+                alert("Erreur lors de la planification : " + error.message);
+            } else {
+                document.getElementById('form-container-session').style.display = 'none';
+                event.target.reset();
+                chargerSessions();
+            }
+        }
+
+        async function supprimerSession(id) {
+            if (confirm("Confirmez-vous l'annulation et la suppression de cette période de remplacement ?")) {
+                const { error } = await db.from('sessions_remplacement').delete().eq('id', id);
+                if (error) alert("Erreur : " + error.message);
+                chargerSessions();
+            }
+        }
+
+
+        // --- 6. DEMARRAGE ET APPLICATION PWA ---
+        async function initialiserApplication() {
+            // Charger d'abord les deux listes indispensables, puis les sessions
+            await chargerKines();
+            await chargerRemplacants();
+            await chargerSessions();
+        }
+
+        initialiserApplication();
+
         if ('serviceWorker' in navigator) {
             navigator.serviceWorker.register('sw.js').catch(err => console.log('Erreur SW:', err));
         }

@@ -19,13 +19,13 @@
         }
         body { font-family: system-ui, sans-serif; background: var(--bg); color: var(--text); margin: 0; padding: 0; }
         
-        /* HEADER MODIFIÉ POUR LE BOUTON DÉCONNEXION */
         header { background: var(--primary); color: white; padding: 1rem; text-align: center; position: relative; }
         #btn-logout { position: absolute; top: 1rem; right: 1rem; display: none; }
         
         nav { display: flex; gap: 1rem; padding: 1rem; background: white; border-bottom: 1px solid #e2e8f0; justify-content: center; }
+        .toolbar { display: flex; gap: 1rem; padding: 0.5rem 1rem; background: #e2e8f0; justify-content: center; font-size: 0.9em; }
         button { padding: 0.5rem 1rem; border: none; background: #e2e8f0; border-radius: 6px; cursor: pointer; font-weight: 500; }
-        button.active { background: var(--primary); color: white; }
+        nav button.active { background: var(--primary); color: white; }
         
         .container { padding: 2rem; max-width: 800px; margin: 0 auto; }
         .section { display: none; }
@@ -98,6 +98,11 @@
             <button onclick="showSection('remplacants')">Remplaçants</button>
             <button onclick="showSection('sessions')">Sessions</button>
         </nav>
+        
+        <div class="toolbar">
+            <button onclick="sauvegarderDonnees()" style="background: white; border: 1px solid #cbd5e1;">💾 Sauvegarder</button>
+            <button onclick="restaurerDonnees()" style="background: white; border: 1px solid #cbd5e1;">📂 Restaurer</button>
+        </div>
 
         <div class="container">
             
@@ -167,7 +172,9 @@
                 <div class="card" id="liste-sessions"><p>Chargement des sessions...</p></div>
             </div>
         </div>
-    </div> <div id="modal-details" class="modal-overlay" onclick="fermerModal(event)">
+    </div>
+
+    <div id="modal-details" class="modal-overlay" onclick="fermerModal(event)">
         <div class="modal-content" onclick="event.stopPropagation()">
             <button class="close-btn" onclick="fermerModalDirect()">&times;</button>
             <h3 id="modal-titre">Détails</h3>
@@ -186,7 +193,6 @@
 
         // --- GESTION DE L'AUTHENTIFICATION ---
         async function verifierSession() {
-            // Demande à Supabase si l'utilisateur est déjà connecté en mémoire
             const { data: { session } } = await db.auth.getSession();
             basculerAffichageApp(!!session);
         }
@@ -196,9 +202,7 @@
             document.getElementById('app-section').style.display = estConnecte ? 'block' : 'none';
             document.getElementById('btn-logout').style.display = estConnecte ? 'inline-block' : 'none';
             
-            if (estConnecte) {
-                rafraichirTout(); // Charge les données uniquement si connecté
-            }
+            if (estConnecte) rafraichirTout();
         }
 
         async function seConnecter(event) {
@@ -207,10 +211,7 @@
             const password = document.getElementById('login-password').value;
             const erreurTxt = document.getElementById('auth-error');
 
-            const { data, error } = await db.auth.signInWithPassword({
-                email: email,
-                password: password,
-            });
+            const { error } = await db.auth.signInWithPassword({ email: email, password: password });
 
             if (error) {
                 erreurTxt.innerText = "Identifiants incorrects ou sécurité mal configurée.";
@@ -223,9 +224,68 @@
             }
         }
 
-        async function seDeconnecter() {
-            await db.auth.signOut();
-            basculerAffichageApp(false);
+        async function seDeconnecter() { await db.auth.signOut(); basculerAffichageApp(false); }
+
+        // --- SAUVEGARDE ET RESTAURATION ---
+        async function sauvegarderDonnees() {
+            try {
+                // On récupère toutes les données brutes
+                const { data: kines } = await db.from('kines').select('*');
+                const { data: remplacants } = await db.from('remplacants').select('*');
+                const { data: sessions } = await db.from('sessions_remplacement').select('*');
+                
+                const backupData = { kines, remplacants, sessions };
+                const blob = new Blob([JSON.stringify(backupData, null, 2)], { type: "application/json" });
+                const url = URL.createObjectURL(blob);
+                
+                // On simule un clic pour déclencher le téléchargement
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `sauvegarde_remplacements_${new Date().toISOString().split('T')[0]}.json`;
+                a.click();
+            } catch (error) {
+                alert("Erreur lors de la sauvegarde.");
+                console.error(error);
+            }
+        }
+
+        function restaurerDonnees() {
+            const input = document.createElement('input');
+            input.type = 'file';
+            input.accept = 'application/json';
+            
+            input.onchange = async (e) => {
+                const file = e.target.files[0];
+                if (!file) return;
+                
+                const reader = new FileReader();
+                reader.onload = async (event) => {
+                    try {
+                        const backup = JSON.parse(event.target.result);
+                        if(confirm("La restauration va mettre à jour la base avec le fichier sélectionné. Voulez-vous continuer ?")) {
+                            
+                            // On utilise 'upsert' pour mettre à jour les existants ou ajouter les nouveaux sans erreur
+                            if (backup.kines && backup.kines.length > 0) {
+                                await db.from('kines').upsert(backup.kines);
+                            }
+                            if (backup.remplacants && backup.remplacants.length > 0) {
+                                await db.from('remplacants').upsert(backup.remplacants);
+                            }
+                            if (backup.sessions && backup.sessions.length > 0) {
+                                await db.from('sessions_remplacement').upsert(backup.sessions);
+                            }
+                            
+                            alert("Données restaurées avec succès !");
+                            rafraichirTout();
+                        }
+                    } catch (error) {
+                        alert("Erreur : Le fichier de sauvegarde est invalide.");
+                    }
+                };
+                reader.readAsText(file);
+            };
+            
+            input.click(); // Ouvre la boîte de dialogue système
         }
 
         // --- NAVIGATION ET UTILITAIRES ---
@@ -449,7 +509,7 @@
 
         async function supprimerSession(id) { if (confirm("Annuler et supprimer ce remplacement ?")) { await db.from('sessions_remplacement').delete().eq('id', id); rafraichirTout(); } }
 
-        // --- MODALE ---
+        // --- MODALES ---
         function fermerModal(event) { if (event.target.id === 'modal-details') document.getElementById('modal-details').style.display = 'none'; }
         function fermerModalDirect() { document.getElementById('modal-details').style.display = 'none'; }
 
@@ -506,9 +566,7 @@
             document.getElementById('modal-details').style.display = 'flex';
         }
 
-        // Lancement au démarrage de la page
         verifierSession();
-
         if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(err => console.log(err));
     </script>
 </body>

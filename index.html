@@ -42,6 +42,8 @@
         .form-group { margin-bottom: 1rem; }
         .form-group label { display: block; font-size: 0.85em; color: #64748b; margin-bottom: 0.25rem; font-weight: bold; }
         .form-group input, .form-group select { padding: 0.5rem; width: 100%; box-sizing: border-box; border: 1px solid #cbd5e1; border-radius: 4px; font-size: 1rem; background: white; }
+        .form-row { display: flex; gap: 1rem; }
+        .form-row .form-group { flex: 1; }
         
         .btn-success { background: var(--success); color: white; }
         .btn-danger { background: var(--danger); color: white; }
@@ -152,8 +154,9 @@
                 <button class="btn-success" style="margin-bottom: 1rem;" onclick="ouvrirFormSession()">+ Planifier un remplacement</button>
                 
                 <div id="form-container-session" class="form-container">
-                    <h3>Planifier un remplacement</h3>
-                    <form onsubmit="ajouterSession(event)">
+                    <h3 id="titre-form-session">Planifier un remplacement</h3>
+                    <form onsubmit="soumettreFormSession(event)">
+                        <input type="hidden" id="edit-id-session">
                         <div class="form-group">
                             <label>Kiné titulaire :</label>
                             <select id="select-kine" required><option value="">Sélectionner...</option></select>
@@ -162,11 +165,16 @@
                             <label>Remplaçant :</label>
                             <select id="select-remp" required><option value="">Sélectionner...</option></select>
                         </div>
-                        <div class="form-group"><label>Date de début :</label><input type="date" id="date-debut" required></div>
-                        <div class="form-group"><label>Date de fin :</label><input type="date" id="date-fin" required></div>
-                        <div class="form-group"><label>Taux de rétrocession (%) :</label><input type="number" id="taux-retro" min="0" max="100" step="0.5" required></div>
-                        <button type="submit" class="btn-success">Créer la session</button>
-                        <button type="button" class="btn-secondary" onclick="document.getElementById('form-container-session').style.display='none'">Annuler</button>
+                        <div class="form-row">
+                            <div class="form-group"><label>Date début :</label><input type="date" id="date-debut" required></div>
+                            <div class="form-group"><label>Date fin :</label><input type="date" id="date-fin" required></div>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group"><label>Rétro Cabinet (%) :</label><input type="number" id="taux-retro-cab" min="0" max="100" step="0.5" required></div>
+                            <div class="form-group"><label>Rétro Domicile (%) :</label><input type="number" id="taux-retro-dom" min="0" max="100" step="0.5" required></div>
+                        </div>
+                        <button type="submit" class="btn-success">Enregistrer la session</button>
+                        <button type="button" class="btn-secondary" onclick="fermerFormSession()">Annuler</button>
                     </form>
                 </div>
                 <div class="card" id="liste-sessions"><p>Chargement des sessions...</p></div>
@@ -201,7 +209,6 @@
             document.getElementById('auth-section').style.display = estConnecte ? 'none' : 'block';
             document.getElementById('app-section').style.display = estConnecte ? 'block' : 'none';
             document.getElementById('btn-logout').style.display = estConnecte ? 'inline-block' : 'none';
-            
             if (estConnecte) rafraichirTout();
         }
 
@@ -210,18 +217,9 @@
             const email = document.getElementById('login-email').value;
             const password = document.getElementById('login-password').value;
             const erreurTxt = document.getElementById('auth-error');
-
             const { error } = await db.auth.signInWithPassword({ email: email, password: password });
-
-            if (error) {
-                erreurTxt.innerText = "Identifiants incorrects ou sécurité mal configurée.";
-                erreurTxt.style.display = 'block';
-            } else {
-                erreurTxt.style.display = 'none';
-                document.getElementById('login-email').value = '';
-                document.getElementById('login-password').value = '';
-                basculerAffichageApp(true);
-            }
+            if (error) { erreurTxt.innerText = "Identifiants incorrects."; erreurTxt.style.display = 'block'; } 
+            else { erreurTxt.style.display = 'none'; document.getElementById('login-email').value = ''; document.getElementById('login-password').value = ''; basculerAffichageApp(true); }
         }
 
         async function seDeconnecter() { await db.auth.signOut(); basculerAffichageApp(false); }
@@ -229,63 +227,35 @@
         // --- SAUVEGARDE ET RESTAURATION ---
         async function sauvegarderDonnees() {
             try {
-                // On récupère toutes les données brutes
                 const { data: kines } = await db.from('kines').select('*');
                 const { data: remplacants } = await db.from('remplacants').select('*');
                 const { data: sessions } = await db.from('sessions_remplacement').select('*');
-                
                 const backupData = { kines, remplacants, sessions };
                 const blob = new Blob([JSON.stringify(backupData, null, 2)], { type: "application/json" });
                 const url = URL.createObjectURL(blob);
-                
-                // On simule un clic pour déclencher le téléchargement
-                const a = document.createElement('a');
-                a.href = url;
-                a.download = `sauvegarde_remplacements_${new Date().toISOString().split('T')[0]}.json`;
-                a.click();
-            } catch (error) {
-                alert("Erreur lors de la sauvegarde.");
-                console.error(error);
-            }
+                const a = document.createElement('a'); a.href = url; a.download = `sauvegarde_remplacements_${new Date().toISOString().split('T')[0]}.json`; a.click();
+            } catch (error) { alert("Erreur lors de la sauvegarde."); }
         }
 
         function restaurerDonnees() {
-            const input = document.createElement('input');
-            input.type = 'file';
-            input.accept = 'application/json';
-            
+            const input = document.createElement('input'); input.type = 'file'; input.accept = 'application/json';
             input.onchange = async (e) => {
-                const file = e.target.files[0];
-                if (!file) return;
-                
+                const file = e.target.files[0]; if (!file) return;
                 const reader = new FileReader();
                 reader.onload = async (event) => {
                     try {
                         const backup = JSON.parse(event.target.result);
-                        if(confirm("La restauration va mettre à jour la base avec le fichier sélectionné. Voulez-vous continuer ?")) {
-                            
-                            // On utilise 'upsert' pour mettre à jour les existants ou ajouter les nouveaux sans erreur
-                            if (backup.kines && backup.kines.length > 0) {
-                                await db.from('kines').upsert(backup.kines);
-                            }
-                            if (backup.remplacants && backup.remplacants.length > 0) {
-                                await db.from('remplacants').upsert(backup.remplacants);
-                            }
-                            if (backup.sessions && backup.sessions.length > 0) {
-                                await db.from('sessions_remplacement').upsert(backup.sessions);
-                            }
-                            
-                            alert("Données restaurées avec succès !");
-                            rafraichirTout();
+                        if(confirm("Restaurer les données ?")) {
+                            if (backup.kines && backup.kines.length > 0) await db.from('kines').upsert(backup.kines);
+                            if (backup.remplacants && backup.remplacants.length > 0) await db.from('remplacants').upsert(backup.remplacants);
+                            if (backup.sessions && backup.sessions.length > 0) await db.from('sessions_remplacement').upsert(backup.sessions);
+                            alert("Restauration réussie !"); rafraichirTout();
                         }
-                    } catch (error) {
-                        alert("Erreur : Le fichier de sauvegarde est invalide.");
-                    }
+                    } catch (error) { alert("Erreur : Fichier invalide."); }
                 };
                 reader.readAsText(file);
             };
-            
-            input.click(); // Ouvre la boîte de dialogue système
+            input.click();
         }
 
         // --- NAVIGATION ET UTILITAIRES ---
@@ -298,140 +268,91 @@
         }
 
         function verifierSessionActive(sessionsList) {
-            const today = new Date();
-            today.setHours(0,0,0,0);
+            const today = new Date(); today.setHours(0,0,0,0);
             return sessionsList.some(s => {
-                const start = new Date(s.date_debut);
-                const end = new Date(s.date_fin);
-                start.setHours(0,0,0,0);
-                end.setHours(23,59,59,999);
+                const start = new Date(s.date_debut); const end = new Date(s.date_fin);
+                start.setHours(0,0,0,0); end.setHours(23,59,59,999);
                 return today >= start && today <= end;
             });
         }
 
-        async function rafraichirTout() {
-            await chargerSessions(); 
-            await chargerKines();
-            await chargerRemplacants();
-        }
+        async function rafraichirTout() { await chargerSessions(); await chargerKines(); await chargerRemplacants(); }
 
         // --- KINÉS ---
         async function chargerKines() {
             const container = document.getElementById('liste-kines');
             const { data, error } = await db.from('kines').select('*').order('nom', { ascending: true });
-            if (error) return;
-            localKines = data;
-            if (data.length === 0) {
-                container.innerHTML = "<p>Aucun kiné enregistré.</p>";
-            } else {
-                container.innerHTML = data.map(kine => {
-                    const enCours = verifierSessionActive(localSessions.filter(s => s.kine_id === kine.id));
-                    return `
-                    <div class="kine-item">
-                        <div><strong class="nom-cliquable" onclick="ouvrirModalKine('${kine.id}', '${kine.nom}', '${kine.prenom}')">${kine.nom.toUpperCase()} ${kine.prenom}</strong> ${enCours ? '<span class="badge-en-cours">En cours</span>' : ''}</div>
-                        <div class="actions-btn">
-                            <button class="btn-warning btn-sm" onclick="preparerModifKine('${kine.id}')">Modifier</button>
-                            <button class="btn-danger btn-sm" onclick="supprimerKine('${kine.id}')">Supprimer</button>
-                        </div>
-                    </div>`;
-                }).join('');
-            }
+            if (error) return; localKines = data;
+            if (data.length === 0) container.innerHTML = "<p>Aucun kiné enregistré.</p>";
+            else container.innerHTML = data.map(kine => {
+                const enCours = verifierSessionActive(localSessions.filter(s => s.kine_id === kine.id));
+                return `
+                <div class="kine-item">
+                    <div><strong class="nom-cliquable" onclick="ouvrirModalKine('${kine.id}', '${kine.nom}', '${kine.prenom}')">${kine.nom.toUpperCase()} ${kine.prenom}</strong> ${enCours ? '<span class="badge-en-cours">En cours</span>' : ''}</div>
+                    <div class="actions-btn">
+                        <button class="btn-warning btn-sm" onclick="preparerModifKine('${kine.id}')">Modifier</button>
+                        <button class="btn-danger btn-sm" onclick="supprimerKine('${kine.id}')">Supprimer</button>
+                    </div>
+                </div>`;
+            }).join('');
         }
-        
         function ouvrirFormKine() { document.getElementById('form-container-kine').querySelector('form').reset(); document.getElementById('edit-id-kine').value = ''; document.getElementById('form-container-kine').style.display = 'block'; }
         function fermerFormKine() { document.getElementById('form-container-kine').style.display = 'none'; }
-        
-        function preparerModifKine(id) {
-            const k = localKines.find(k => k.id === id);
-            document.getElementById('edit-id-kine').value = id; document.getElementById('nom-kine').value = k.nom; document.getElementById('prenom-kine').value = k.prenom; document.getElementById('form-container-kine').style.display = 'block';
-        }
-
-        async function soumettreFormKine(event) {
-            event.preventDefault();
-            const id = document.getElementById('edit-id-kine').value;
-            const payload = { nom: document.getElementById('nom-kine').value, prenom: document.getElementById('prenom-kine').value };
-            if (id) await db.from('kines').update(payload).eq('id', id); else await db.from('kines').insert([payload]);
-            fermerFormKine(); rafraichirTout();
-        }
-
+        function preparerModifKine(id) { const k = localKines.find(k => k.id === id); document.getElementById('edit-id-kine').value = id; document.getElementById('nom-kine').value = k.nom; document.getElementById('prenom-kine').value = k.prenom; document.getElementById('form-container-kine').style.display = 'block'; }
+        async function soumettreFormKine(event) { event.preventDefault(); const id = document.getElementById('edit-id-kine').value; const payload = { nom: document.getElementById('nom-kine').value, prenom: document.getElementById('prenom-kine').value }; if (id) await db.from('kines').update(payload).eq('id', id); else await db.from('kines').insert([payload]); fermerFormKine(); rafraichirTout(); }
         async function supprimerKine(id) { if (confirm("Supprimer ce kiné ?")) { await db.from('kines').delete().eq('id', id); rafraichirTout(); } }
 
         // --- REMPLAÇANTS ---
         async function chargerRemplacants() {
             const container = document.getElementById('liste-remplacants');
             const { data, error } = await db.from('remplacants').select('*').order('nom', { ascending: true });
-            if (error) return;
-            localRemplacants = data;
-            if (data.length === 0) {
-                container.innerHTML = "<p>Aucun remplaçant enregistré.</p>";
-            } else {
-                container.innerHTML = data.map(remp => {
-                    const enCours = verifierSessionActive(localSessions.filter(s => s.remplacant_id === remp.id));
-                    return `
-                    <div class="kine-item" style="align-items: flex-start; gap: 0.5rem;">
-                        <div style="flex-direction: column;">
-                            <div><strong class="nom-cliquable" onclick="ouvrirModalRemp('${remp.id}', '${remp.nom}', '${remp.prenom}')">${remp.nom.toUpperCase()} ${remp.prenom}</strong> ${enCours ? '<span class="badge-en-cours">En poste</span>' : ''}</div>
-                            <div style="font-size: 0.85em; color: #64748b; margin-top:0.25rem;">📞 ${remp.telephone || '-'} | ✉️ ${remp.email || '-'}<br>🪪 Ordre: ${remp.num_ordre || '-'} | 🧾 SIRET: ${remp.siret || '-'}</div>
-                        </div>
-                        <div class="actions-btn">
-                            <button class="btn-warning btn-sm" onclick="preparerModifRemp('${remp.id}')">Modifier</button>
-                            <button class="btn-danger btn-sm" onclick="supprimerRemplacant('${remp.id}')">Supprimer</button>
-                        </div>
-                    </div>`;
-                }).join('');
-            }
+            if (error) return; localRemplacants = data;
+            if (data.length === 0) container.innerHTML = "<p>Aucun remplaçant enregistré.</p>";
+            else container.innerHTML = data.map(remp => {
+                const enCours = verifierSessionActive(localSessions.filter(s => s.remplacant_id === remp.id));
+                return `
+                <div class="kine-item" style="align-items: flex-start; gap: 0.5rem;">
+                    <div style="flex-direction: column;">
+                        <div><strong class="nom-cliquable" onclick="ouvrirModalRemp('${remp.id}', '${remp.nom}', '${remp.prenom}')">${remp.nom.toUpperCase()} ${remp.prenom}</strong> ${enCours ? '<span class="badge-en-cours">En poste</span>' : ''}</div>
+                        <div style="font-size: 0.85em; color: #64748b; margin-top:0.25rem;">📞 ${remp.telephone || '-'} | ✉️ ${remp.email || '-'}<br>🪪 Ordre: ${remp.num_ordre || '-'} | 🧾 SIRET: ${remp.siret || '-'}</div>
+                    </div>
+                    <div class="actions-btn">
+                        <button class="btn-warning btn-sm" onclick="preparerModifRemp('${remp.id}')">Modifier</button>
+                        <button class="btn-danger btn-sm" onclick="supprimerRemplacant('${remp.id}')">Supprimer</button>
+                    </div>
+                </div>`;
+            }).join('');
         }
-
         function ouvrirFormRemp() { document.getElementById('form-container-remp').querySelector('form').reset(); document.getElementById('edit-id-remp').value = ''; document.getElementById('form-container-remp').style.display = 'block'; }
         function fermerFormRemp() { document.getElementById('form-container-remp').style.display = 'none'; }
-        
-        function preparerModifRemp(id) {
-            const r = localRemplacants.find(x => x.id === id);
-            document.getElementById('edit-id-remp').value = r.id; document.getElementById('nom-remp').value = r.nom; document.getElementById('prenom-remp').value = r.prenom; document.getElementById('ddn-remp').value = r.date_naissance || ''; document.getElementById('ldn-remp').value = r.lieu_naissance || ''; document.getElementById('ordre-remp').value = r.num_ordre || ''; document.getElementById('adresse-remp').value = r.adresse_postale || ''; document.getElementById('tel-remp').value = r.telephone || ''; document.getElementById('email-remp').value = r.email || ''; document.getElementById('siret-remp').value = r.siret || '';
-            document.getElementById('form-container-remp').style.display = 'block';
-        }
-
-        async function soumettreFormRemp(event) {
-            event.preventDefault();
-            const id = document.getElementById('edit-id-remp').value;
-            const payload = { nom: document.getElementById('nom-remp').value, prenom: document.getElementById('prenom-remp').value, date_naissance: document.getElementById('ddn-remp').value || null, lieu_naissance: document.getElementById('ldn-remp').value, num_ordre: document.getElementById('ordre-remp').value, adresse_postale: document.getElementById('adresse-remp').value, telephone: document.getElementById('tel-remp').value, email: document.getElementById('email-remp').value, siret: document.getElementById('siret-remp').value };
-            if (id) await db.from('remplacants').update(payload).eq('id', id); else await db.from('remplacants').insert([payload]);
-            fermerFormRemp(); rafraichirTout();
-        }
-
+        function preparerModifRemp(id) { const r = localRemplacants.find(x => x.id === id); document.getElementById('edit-id-remp').value = r.id; document.getElementById('nom-remp').value = r.nom; document.getElementById('prenom-remp').value = r.prenom; document.getElementById('ddn-remp').value = r.date_naissance || ''; document.getElementById('ldn-remp').value = r.lieu_naissance || ''; document.getElementById('ordre-remp').value = r.num_ordre || ''; document.getElementById('adresse-remp').value = r.adresse_postale || ''; document.getElementById('tel-remp').value = r.telephone || ''; document.getElementById('email-remp').value = r.email || ''; document.getElementById('siret-remp').value = r.siret || ''; document.getElementById('form-container-remp').style.display = 'block'; }
+        async function soumettreFormRemp(event) { event.preventDefault(); const id = document.getElementById('edit-id-remp').value; const payload = { nom: document.getElementById('nom-remp').value, prenom: document.getElementById('prenom-remp').value, date_naissance: document.getElementById('ddn-remp').value || null, lieu_naissance: document.getElementById('ldn-remp').value, num_ordre: document.getElementById('ordre-remp').value, adresse_postale: document.getElementById('adresse-remp').value, telephone: document.getElementById('tel-remp').value, email: document.getElementById('email-remp').value, siret: document.getElementById('siret-remp').value }; if (id) await db.from('remplacants').update(payload).eq('id', id); else await db.from('remplacants').insert([payload]); fermerFormRemp(); rafraichirTout(); }
         async function supprimerRemplacant(id) { if (confirm("Supprimer ce remplaçant ?")) { await db.from('remplacants').delete().eq('id', id); rafraichirTout(); } }
 
         // --- SESSIONS ---
         async function chargerSessions() {
             const container = document.getElementById('liste-sessions');
             const { data, error } = await db.from('sessions_remplacement').select(`
-                id, kine_id, remplacant_id, date_debut, date_fin, taux_retro, 
+                id, kine_id, remplacant_id, date_debut, date_fin, taux_retro_cab, taux_retro_dom, 
                 contrat_redige, contrat_transmis, retro_editee, date_paiement,
                 kines (nom, prenom), remplacants (nom, prenom)
             `).order('date_debut', { ascending: false });
 
-            if (error) return;
+            if (error) { console.error(error); return; }
             localSessions = data;
 
             if (data.length === 0) {
                 container.innerHTML = "<p>Aucun remplacement planifié.</p>";
             } else {
-                const today = new Date();
-                today.setHours(0,0,0,0);
-
+                const today = new Date(); today.setHours(0,0,0,0);
                 container.innerHTML = data.map(session => {
                     const dateDeb = new Date(session.date_debut).toLocaleDateString('fr-FR');
                     const dateFin = new Date(session.date_fin).toLocaleDateString('fr-FR');
                     const kineNom = session.kines ? `${session.kines.nom.toUpperCase()} ${session.kines.prenom}` : 'Inconnu';
+                    const rempNom = session.remplacants ? `<strong class="nom-cliquable" onclick="ouvrirModalInfoRemp('${session.remplacant_id}')">${session.remplacants.nom.toUpperCase()} ${session.remplacants.prenom}</strong>` : 'Inconnu';
                     
-                    const rempNom = session.remplacants 
-                        ? `<strong class="nom-cliquable" onclick="ouvrirModalInfoRemp('${session.remplacant_id}')">${session.remplacants.nom.toUpperCase()} ${session.remplacants.prenom}</strong>` 
-                        : 'Inconnu';
-
                     const enCours = verifierSessionActive([session]);
-                    
-                    const dateFinObj = new Date(session.date_fin);
-                    dateFinObj.setHours(23,59,59,999);
+                    const dateFinObj = new Date(session.date_fin); dateFinObj.setHours(23,59,59,999);
                     const estTermine = today > dateFinObj;
                     
                     let badgeStatut = '';
@@ -439,12 +360,12 @@
                     else if (estTermine) badgeStatut = '<span class="badge-termine">Terminé</span>';
 
                     const borderStyle = enCours ? "border-left: 4px solid var(--success); background: #ecfdf5;" : "";
-
-                    const dateLimiteOrdre = new Date(session.date_debut);
-                    dateLimiteOrdre.setMonth(dateLimiteOrdre.getMonth() + 1);
+                    const dateLimiteOrdre = new Date(session.date_debut); dateLimiteOrdre.setMonth(dateLimiteOrdre.getMonth() + 1);
                     const retardOrdre = !session.contrat_transmis && (today > dateLimiteOrdre);
-                    const classeAlerteOrdre = retardOrdre ? "alert-ordre" : "";
-                    const iconeRetard = retardOrdre ? " ⚠️ Retard" : "";
+                    
+                    // Gestion de l'affichage sécurisé si anciennes données existantes
+                    const tCab = session.taux_retro_cab !== null ? session.taux_retro_cab : '-';
+                    const tDom = session.taux_retro_dom !== null ? session.taux_retro_dom : '-';
 
                     return `
                         <div class="kine-item" style="flex-direction: column; align-items: stretch; ${borderStyle}">
@@ -452,46 +373,32 @@
                                 <div>
                                     📅 <strong>Du ${dateDeb} au ${dateFin}</strong> ${badgeStatut}<br>
                                     <span style="font-size: 0.9em; color: #334155;">Titulaire : ${kineNom} 🔄 Remplaçant : ${rempNom}</span><br>
-                                    <span style="font-size: 0.85em; font-weight: bold; color: var(--primary);">Taux Rétrocession : ${session.taux_retro}%</span>
+                                    <span style="font-size: 0.85em; font-weight: bold; color: var(--primary);">Rétrocession : Cab ${tCab}% | Dom ${tDom}%</span>
                                 </div>
-                                <button class="btn-danger btn-sm" onclick="supprimerSession('${session.id}')">Supprimer</button>
+                                <div class="actions-btn" style="flex-direction: column; gap: 0.25rem;">
+                                    <button class="btn-warning btn-sm" onclick="preparerModifSession('${session.id}')">Modifier</button>
+                                    <button class="btn-danger btn-sm" onclick="supprimerSession('${session.id}')">Supprimer</button>
+                                </div>
                             </div>
                             
                             <div class="admin-panel">
-                                <label>
-                                    <input type="checkbox" ${session.contrat_redige ? 'checked' : ''} onchange="majStatutSession('${session.id}', 'contrat_redige', this.checked)"> 
-                                    Contrat rédigé
-                                </label>
-                                
-                                <label class="${classeAlerteOrdre}">
-                                    <input type="checkbox" ${session.contrat_transmis ? 'checked' : ''} onchange="majStatutSession('${session.id}', 'contrat_transmis', this.checked)"> 
-                                    Transmis à l'ordre ${iconeRetard}
-                                </label>
-                                
-                                <label>
-                                    <input type="checkbox" ${session.retro_editee ? 'checked' : ''} onchange="majStatutSession('${session.id}', 'retro_editee', this.checked)"> 
-                                    Rétrocession éditée
-                                </label>
-                                
-                                <label>
-                                    Paiement le :
-                                    <input type="date" value="${session.date_paiement || ''}" onchange="majStatutSession('${session.id}', 'date_paiement', this.value)">
-                                </label>
+                                <label><input type="checkbox" ${session.contrat_redige ? 'checked' : ''} onchange="majStatutSession('${session.id}', 'contrat_redige', this.checked)"> Contrat rédigé</label>
+                                <label class="${retardOrdre ? "alert-ordre" : ""}"><input type="checkbox" ${session.contrat_transmis ? 'checked' : ''} onchange="majStatutSession('${session.id}', 'contrat_transmis', this.checked)"> Transmis à l'ordre ${retardOrdre ? " ⚠️ Retard" : ""}</label>
+                                <label><input type="checkbox" ${session.retro_editee ? 'checked' : ''} onchange="majStatutSession('${session.id}', 'retro_editee', this.checked)"> Rétro éditée</label>
+                                <label>Paiement le : <input type="date" value="${session.date_paiement || ''}" onchange="majStatutSession('${session.id}', 'date_paiement', this.value)"></label>
                             </div>
                         </div>`;
                 }).join('');
             }
         }
 
-        async function majStatutSession(id, champ, valeur) {
-            const payload = {};
-            payload[champ] = valeur === '' ? null : valeur; 
-            const { error } = await db.from('sessions_remplacement').update(payload).eq('id', id);
-            if (error) alert("Erreur de sauvegarde : " + error.message);
-            else chargerSessions(); 
-        }
+        async function majStatutSession(id, champ, valeur) { const payload = {}; payload[champ] = valeur === '' ? null : valeur; await db.from('sessions_remplacement').update(payload).eq('id', id); chargerSessions(); }
 
         function ouvrirFormSession() {
+            document.getElementById('form-container-session').querySelector('form').reset();
+            document.getElementById('edit-id-session').value = '';
+            document.getElementById('titre-form-session').innerText = "Planifier un remplacement";
+            
             const selectKine = document.getElementById('select-kine');
             const selectRemp = document.getElementById('select-remp');
             selectKine.innerHTML = '<option value="">Sélectionner un titulaire...</option>' + localKines.map(k => `<option value="${k.id}">${k.nom.toUpperCase()} ${k.prenom}</option>`).join('');
@@ -499,12 +406,43 @@
             document.getElementById('form-container-session').style.display = 'block';
         }
 
-        async function ajouterSession(event) {
+        function fermerFormSession() { document.getElementById('form-container-session').style.display = 'none'; }
+
+        function preparerModifSession(id) {
+            const s = localSessions.find(x => x.id === id);
+            document.getElementById('edit-id-session').value = s.id;
+            
+            const selectKine = document.getElementById('select-kine');
+            const selectRemp = document.getElementById('select-remp');
+            selectKine.innerHTML = '<option value="">Sélectionner un titulaire...</option>' + localKines.map(k => `<option value="${k.id}" ${k.id === s.kine_id ? 'selected' : ''}>${k.nom.toUpperCase()} ${k.prenom}</option>`).join('');
+            selectRemp.innerHTML = '<option value="">Sélectionner un remplaçant...</option>' + localRemplacants.map(r => `<option value="${r.id}" ${r.id === s.remplacant_id ? 'selected' : ''}>${r.nom.toUpperCase()} ${r.prenom}</option>`).join('');
+
+            document.getElementById('date-debut').value = s.date_debut;
+            document.getElementById('date-fin').value = s.date_fin;
+            document.getElementById('taux-retro-cab').value = s.taux_retro_cab || '';
+            document.getElementById('taux-retro-dom').value = s.taux_retro_dom || '';
+
+            document.getElementById('titre-form-session').innerText = "Modifier le remplacement";
+            document.getElementById('form-container-session').style.display = 'block';
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+
+        async function soumettreFormSession(event) {
             event.preventDefault();
-            const payload = { kine_id: document.getElementById('select-kine').value, remplacant_id: document.getElementById('select-remp').value, date_debut: document.getElementById('date-debut').value, date_fin: document.getElementById('date-fin').value, taux_retro: parseFloat(document.getElementById('taux-retro').value) };
-            await db.from('sessions_remplacement').insert([payload]);
-            document.getElementById('form-container-session').style.display = 'none';
-            event.target.reset(); rafraichirTout();
+            const id = document.getElementById('edit-id-session').value;
+            const payload = { 
+                kine_id: document.getElementById('select-kine').value, 
+                remplacant_id: document.getElementById('select-remp').value, 
+                date_debut: document.getElementById('date-debut').value, 
+                date_fin: document.getElementById('date-fin').value, 
+                taux_retro_cab: parseFloat(document.getElementById('taux-retro-cab').value),
+                taux_retro_dom: parseFloat(document.getElementById('taux-retro-dom').value)
+            };
+            
+            if (id) { await db.from('sessions_remplacement').update(payload).eq('id', id); } 
+            else { await db.from('sessions_remplacement').insert([payload]); }
+            
+            fermerFormSession(); rafraichirTout();
         }
 
         async function supprimerSession(id) { if (confirm("Annuler et supprimer ce remplacement ?")) { await db.from('sessions_remplacement').delete().eq('id', id); rafraichirTout(); } }
@@ -520,36 +458,24 @@
                 const dateFin = new Date(s.date_fin).toLocaleDateString('fr-FR');
                 const enCours = verifierSessionActive([s]);
                 const classeActive = enCours ? "active" : "";
-                const interlocuteur = estKine 
-                    ? (s.remplacants ? `Remplacé par : <strong>${s.remplacants.nom.toUpperCase()} ${s.remplacants.prenom}</strong>` : 'Inconnu')
-                    : (s.kines ? `Remplace : <strong>${s.kines.nom.toUpperCase()} ${s.kines.prenom}</strong>` : 'Inconnu');
+                const interlocuteur = estKine ? (s.remplacants ? `Remplacé par : <strong>${s.remplacants.nom.toUpperCase()} ${s.remplacants.prenom}</strong>` : 'Inconnu') : (s.kines ? `Remplace : <strong>${s.kines.nom.toUpperCase()} ${s.kines.prenom}</strong>` : 'Inconnu');
+                
+                const tCab = s.taux_retro_cab !== null ? s.taux_retro_cab : '-';
+                const tDom = s.taux_retro_dom !== null ? s.taux_retro_dom : '-';
 
                 return `
                 <div class="session-detail-item ${classeActive}">
                     📅 Du ${dateDeb} au ${dateFin} ${enCours ? '<span class="badge-en-cours" style="float:right;">En cours</span>' : ''}<br>
                     ${interlocuteur}<br>
-                    <span style="font-size: 0.85em; color: var(--primary); font-weight: bold;">Rétrocession : ${s.taux_retro}%</span>
+                    <span style="font-size: 0.85em; color: var(--primary); font-weight: bold;">Rétro : Cab ${tCab}% | Dom ${tDom}%</span>
                 </div>`;
             }).join('');
         }
 
-        function ouvrirModalKine(kineId, nom, prenom) {
-            const sessionsDuKine = localSessions.filter(s => s.kine_id === kineId);
-            document.getElementById('modal-titre').innerText = `Historique de ${nom.toUpperCase()} ${prenom}`;
-            document.getElementById('modal-contenu').innerHTML = genererContenuModal(sessionsDuKine, true);
-            document.getElementById('modal-details').style.display = 'flex';
-        }
-
-        function ouvrirModalRemp(rempId, nom, prenom) {
-            const sessionsDuRemp = localSessions.filter(s => s.remplacant_id === rempId);
-            document.getElementById('modal-titre').innerText = `Planning de ${nom.toUpperCase()} ${prenom}`;
-            document.getElementById('modal-contenu').innerHTML = genererContenuModal(sessionsDuRemp, false);
-            document.getElementById('modal-details').style.display = 'flex';
-        }
-
+        function ouvrirModalKine(kineId, nom, prenom) { const sessionsDuKine = localSessions.filter(s => s.kine_id === kineId); document.getElementById('modal-titre').innerText = `Historique de ${nom.toUpperCase()} ${prenom}`; document.getElementById('modal-contenu').innerHTML = genererContenuModal(sessionsDuKine, true); document.getElementById('modal-details').style.display = 'flex'; }
+        function ouvrirModalRemp(rempId, nom, prenom) { const sessionsDuRemp = localSessions.filter(s => s.remplacant_id === rempId); document.getElementById('modal-titre').innerText = `Planning de ${nom.toUpperCase()} ${prenom}`; document.getElementById('modal-contenu').innerHTML = genererContenuModal(sessionsDuRemp, false); document.getElementById('modal-details').style.display = 'flex'; }
         function ouvrirModalInfoRemp(rempId) {
-            const remp = localRemplacants.find(r => r.id === rempId);
-            if (!remp) return;
+            const remp = localRemplacants.find(r => r.id === rempId); if (!remp) return;
             document.getElementById('modal-titre').innerText = `Fiche de ${remp.nom.toUpperCase()} ${remp.prenom}`;
             const ddn = remp.date_naissance ? new Date(remp.date_naissance).toLocaleDateString('fr-FR') : 'Non renseignée';
             document.getElementById('modal-contenu').innerHTML = `

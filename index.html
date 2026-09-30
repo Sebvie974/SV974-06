@@ -227,14 +227,37 @@
         // --- SAUVEGARDE ET RESTAURATION ---
         async function sauvegarderDonnees() {
             try {
-                const { data: kines } = await db.from('kines').select('*');
-                const { data: remplacants } = await db.from('remplacants').select('*');
-                const { data: sessions } = await db.from('sessions_remplacement').select('*');
+                // On récupère les données et on vérifie s'il y a des erreurs
+                const { data: kines, error: errKines } = await db.from('kines').select('*');
+                const { data: remplacants, error: errRemp } = await db.from('remplacants').select('*');
+                const { data: sessions, error: errSess } = await db.from('sessions_remplacement').select('*');
+                
+                if (errKines || errRemp || errSess) {
+                    console.error("Erreur de lecture Supabase:", errKines || errRemp || errSess);
+                    alert("Erreur lors de la récupération des données depuis la base.");
+                    return;
+                }
+
                 const backupData = { kines, remplacants, sessions };
                 const blob = new Blob([JSON.stringify(backupData, null, 2)], { type: "application/json" });
                 const url = URL.createObjectURL(blob);
-                const a = document.createElement('a'); a.href = url; a.download = `sauvegarde_remplacements_${new Date().toISOString().split('T')[0]}.json`; a.click();
-            } catch (error) { alert("Erreur lors de la sauvegarde."); }
+                
+                const a = document.createElement('a'); 
+                a.href = url; 
+                a.download = `sauvegarde_remplacements_${new Date().toISOString().split('T')[0]}.json`; 
+                
+                // On attache temporairement le lien à la page pour forcer le navigateur à autoriser le clic
+                document.body.appendChild(a);
+                a.click();
+                
+                // On nettoie après le téléchargement
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+                
+            } catch (error) { 
+                console.error("Erreur critique de sauvegarde :", error);
+                alert("Une erreur inattendue s'est produite lors de la sauvegarde."); 
+            }
         }
 
         function restaurerDonnees() {

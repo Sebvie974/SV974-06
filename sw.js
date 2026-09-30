@@ -1,4 +1,4 @@
-const CACHE_NAME = 'remplakine-v1';
+const CACHE_NAME = 'remplakine-v2';
 const urlsToCache = [
     './',
     './index.html',

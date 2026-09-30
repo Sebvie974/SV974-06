@@ -226,11 +226,9 @@
 
         // --- SAUVEGARDE ET RESTAURATION ---
         function sauvegarderDonnees() {
-            // Ce message prouve que le nouveau code est bien pris en compte
-            alert("Génération du fichier de sauvegarde en cours..."); 
-            
             try {
-                // Utilisation directe des données déjà chargées en mémoire (Instantané et anti-blocage)
+                console.log("Création de la sauvegarde en mémoire..."); 
+                
                 const backupData = { 
                     kines: localKines, 
                     remplacants: localRemplacants, 
@@ -241,16 +239,22 @@
                 const url = URL.createObjectURL(blob);
                 
                 const a = document.createElement('a'); 
+                a.style.display = 'none';
                 a.href = url; 
                 a.download = `sauvegarde_remplacements_${new Date().toISOString().split('T')[0]}.json`; 
                 
                 document.body.appendChild(a);
                 a.click();
-                document.body.removeChild(a);
-                URL.revokeObjectURL(url);
+                
+                // On laisse 100 millisecondes au navigateur pour démarrer le téléchargement avant de nettoyer
+                setTimeout(() => {
+                    document.body.removeChild(a);
+                    URL.revokeObjectURL(url);
+                    console.log("Sauvegarde terminée !");
+                }, 100);
                 
             } catch (error) { 
-                alert("Erreur de sauvegarde : " + error.message); 
+                console.error("Erreur de sauvegarde :", error);
             }
         }
 
